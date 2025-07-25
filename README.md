@@ -1,6 +1,6 @@
-# SRV-Team - API de Gerenciamento de Times
+# SRV-Team - API de Gerenciamento de Usuários
 
-Este é um projeto Spring Boot que fornece uma API REST para gerenciamento de times de trabalho.
+Este é um projeto Spring Boot que fornece uma API REST para gerenciamento de usuários.
 
 ## 🚀 Tecnologias Utilizadas### Fazer login
 ```bash
@@ -28,20 +28,26 @@ src/
 │   ├── java/com/example/srvteam/
 │   │   ├── SrvTeamApplication.java      # Classe principal
 │   │   ├── controller/
-│   │   │   └── TeamController.java      # Controlador REST
+│   │   │   └── UsuarioController.java   # Controlador REST
 │   │   ├── model/
-│   │   │   └── Team.java               # Entidade Team
+│   │   │   └── Usuario.java            # Entidade Usuario
 │   │   ├── repository/
-│   │   │   └── TeamRepository.java     # Repositório JPA
-│   │   └── service/
-│   │       └── TeamService.java        # Lógica de negócio
+│   │   │   └── UsuarioRepository.java  # Repositório JPA
+│   │   ├── service/
+│   │   │   └── UsuarioService.java     # Lógica de negócio
+│   │   └── util/
+│   │       └── PasswordUtil.java       # Utilitário de criptografia
 │   └── resources/
 │       └── application.properties       # Configurações
 └── test/
     └── java/com/example/srvteam/
         ├── SrvTeamApplicationTests.java
-        └── controller/
-            └── TeamControllerTest.java
+        ├── controller/
+        │   └── UsuarioControllerTest.java
+        ├── service/
+        │   └── UsuarioServiceTest.java
+        └── util/
+            └── PasswordUtilTest.java
 ```
 
 ## 🛠️ Como Executar
@@ -89,20 +95,6 @@ A aplicação estará disponível em: `http://localhost:8080`
 
 ## 🔗 Endpoints da API
 
-### Teams
-
-| Método | Endpoint | Descrição |
-|--------|----------|-----------|
-| GET | `/v1/teams` | Lista todos os times |
-| GET | `/v1/teams/{id}` | Busca time por ID |
-| GET | `/v1/teams/name/{name}` | Busca time por nome |
-| GET | `/v1/teams/search?name={name}` | Busca times por nome (parcial) |
-| GET | `/v1/teams/search?lead={lead}` | Busca times por líder |
-| GET | `/v1/teams/search?description={keyword}` | Busca times por palavra-chave na descrição |
-| POST | `/v1/teams` | Cria novo time |
-| PUT | `/v1/teams/{id}` | Atualiza time existente |
-| DELETE | `/v1/teams/{id}` | Remove time |
-
 ### Usuários
 
 | Método | Endpoint | Descrição |
@@ -118,17 +110,6 @@ A aplicação estará disponível em: `http://localhost:8080`
 | POST | `/v1/usuarios/login` | Verifica credenciais de login |
 | PATCH | `/v1/usuarios/{cdUsuario}/ativar` | Ativa usuário |
 | PATCH | `/v1/usuarios/{cdUsuario}/inativar` | Inativa usuário |
-
-### Exemplo de JSON para Team
-
-```json
-{
-  "name": "Desenvolvimento",
-  "description": "Time responsável pelo desenvolvimento de software",
-  "email": "dev@example.com",
-  "teamLead": "João Silva"
-}
-```
 
 ### Exemplo de JSON para Usuario
 
@@ -154,18 +135,6 @@ A aplicação estará disponível em: `http://localhost:8080`
 
 ## 🧪 Testando a API
 
-### Criar um time
-```bash
-curl -X POST http://localhost:8080/v1/teams \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Desenvolvimento",
-    "description": "Time de desenvolvimento de software",
-    "email": "dev@example.com",
-    "teamLead": "João Silva"
-  }'
-```
-
 ### Criar um usuário
 ```bash
 curl -X POST http://localhost:8080/v1/usuarios \
@@ -188,19 +157,9 @@ curl -X POST http://localhost:8080/v1/usuarios/login \
   }'
 ```
 
-### Listar todos os times
-```bash
-curl -X GET http://localhost:8080/v1/teams
-```
-
 ### Listar usuários ativos
 ```bash
 curl -X GET http://localhost:8080/v1/usuarios/ativos
-```
-
-### Buscar time por ID
-```bash
-curl -X GET http://localhost:8080/v1/teams/1
 ```
 
 ## 🔧 Configurações
@@ -214,12 +173,15 @@ As principais configurações estão no arquivo `src/main/resources/application.
 
 ## 📝 Validações
 
-A entidade Team possui as seguintes validações:
+A entidade Usuario possui as seguintes validações:
 
+- **Login**: Obrigatório, entre 3 e 50 caracteres, deve ser único
+- **Senha**: Obrigatória, criptografada com Base64 + MD5
 - **Nome**: Obrigatório, entre 2 e 100 caracteres
-- **Descrição**: Máximo 500 caracteres
-- **Email**: Formato de email válido
-- **Team Lead**: Opcional
+- **Email**: Formato de email válido, deve ser único
+- **Data de Cadastro**: Preenchida automaticamente
+- **Flag Ativo**: Controla se o usuário está ativo
+- **Data de Expiração**: Opcional, define quando o usuário expira
 
 ## 🚀 Próximos Passos
 
@@ -230,6 +192,9 @@ A entidade Team possui as seguintes validações:
 - [ ] Implementar logs estruturados
 - [ ] Adicionar métricas com Micrometer
 - [ ] Implementar testes de integração
+- [ ] Melhorar criptografia de senhas (BCrypt)
+- [ ] Implementar recuperação de senha
+- [ ] Adicionar controle de sessão
 
 ## 📄 Licença
 
