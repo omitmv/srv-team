@@ -2,9 +2,15 @@
 
 Este é um projeto Spring Boot que fornece uma API REST para gerenciamento de times de trabalho.
 
-## 🚀 Tecnologias Utilizadas
-
-- **Java 17**
+## 🚀 Tecnologias Utilizadas### Fazer login
+```bash
+curl -X POST http://localhost:8080/v1/usuarios/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "login": "joao.silva",
+    "senha": "123456"
+  }'
+```va 17**
 - **Spring Boot 3.2.2**
 - **Spring Data JPA**
 - **Spring Web**
@@ -87,31 +93,31 @@ A aplicação estará disponível em: `http://localhost:8080`
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| GET | `/api/teams` | Lista todos os times |
-| GET | `/api/teams/{id}` | Busca time por ID |
-| GET | `/api/teams/name/{name}` | Busca time por nome |
-| GET | `/api/teams/search?name={name}` | Busca times por nome (parcial) |
-| GET | `/api/teams/search?lead={lead}` | Busca times por líder |
-| GET | `/api/teams/search?description={keyword}` | Busca times por palavra-chave na descrição |
-| POST | `/api/teams` | Cria novo time |
-| PUT | `/api/teams/{id}` | Atualiza time existente |
-| DELETE | `/api/teams/{id}` | Remove time |
+| GET | `/v1/teams` | Lista todos os times |
+| GET | `/v1/teams/{id}` | Busca time por ID |
+| GET | `/v1/teams/name/{name}` | Busca time por nome |
+| GET | `/v1/teams/search?name={name}` | Busca times por nome (parcial) |
+| GET | `/v1/teams/search?lead={lead}` | Busca times por líder |
+| GET | `/v1/teams/search?description={keyword}` | Busca times por palavra-chave na descrição |
+| POST | `/v1/teams` | Cria novo time |
+| PUT | `/v1/teams/{id}` | Atualiza time existente |
+| DELETE | `/v1/teams/{id}` | Remove time |
 
 ### Usuários
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| GET | `/api/usuarios` | Lista todos os usuários |
-| GET | `/api/usuarios/{cdUsuario}` | Busca usuário por ID |
-| GET | `/api/usuarios/login/{login}` | Busca usuário por login |
-| GET | `/api/usuarios/email/{email}` | Busca usuário por email |
-| GET | `/api/usuarios/ativos` | Lista usuários ativos |
-| POST | `/api/usuarios` | Cria novo usuário |
-| PUT | `/api/usuarios/{cdUsuario}` | Atualiza usuário existente |
-| DELETE | `/api/usuarios/{cdUsuario}` | Remove usuário |
-| POST | `/api/usuarios/login` | Verifica credenciais de login |
-| PATCH | `/api/usuarios/{cdUsuario}/ativar` | Ativa usuário |
-| PATCH | `/api/usuarios/{cdUsuario}/inativar` | Inativa usuário |
+| GET | `/v1/usuarios` | Lista todos os usuários |
+| GET | `/v1/usuarios/{cdUsuario}` | Busca usuário por ID |
+| GET | `/v1/usuarios/login/{login}` | Busca usuário por login |
+| GET | `/v1/usuarios/email/{email}` | Busca usuário por email |
+| GET | `/v1/usuarios/ativos` | Lista usuários ativos |
+| POST | `/v1/usuarios` | Cria novo usuário |
+| PUT | `/v1/usuarios/{cdUsuario}` | Atualiza usuário existente |
+| DELETE | `/v1/usuarios/{cdUsuario}` | Remove usuário |
+| POST | `/v1/usuarios/login` | Verifica credenciais de login |
+| PATCH | `/v1/usuarios/{cdUsuario}/ativar` | Ativa usuário |
+| PATCH | `/v1/usuarios/{cdUsuario}/inativar` | Inativa usuário |
 
 ### Exemplo de JSON para Team
 
@@ -150,7 +156,7 @@ A aplicação estará disponível em: `http://localhost:8080`
 
 ### Criar um time
 ```bash
-curl -X POST http://localhost:8080/api/teams \
+curl -X POST http://localhost:8080/v1/teams \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Desenvolvimento",
@@ -162,7 +168,7 @@ curl -X POST http://localhost:8080/api/teams \
 
 ### Criar um usuário
 ```bash
-curl -X POST http://localhost:8080/api/usuarios \
+curl -X POST http://localhost:8080/v1/usuarios \
   -H "Content-Type: application/json" \
   -d '{
     "login": "joao.silva",
@@ -174,7 +180,7 @@ curl -X POST http://localhost:8080/api/usuarios \
 
 ### Fazer login
 ```bash
-curl -X POST http://localhost:8080/api/usuarios/login \
+curl -X POST http://localhost:8080/v1/usuarios/login \
   -H "Content-Type: application/json" \
   -d '{
     "login": "joao.silva",
@@ -184,17 +190,17 @@ curl -X POST http://localhost:8080/api/usuarios/login \
 
 ### Listar todos os times
 ```bash
-curl -X GET http://localhost:8080/api/teams
+curl -X GET http://localhost:8080/v1/teams
 ```
 
 ### Listar usuários ativos
 ```bash
-curl -X GET http://localhost:8080/api/usuarios/ativos
+curl -X GET http://localhost:8080/v1/usuarios/ativos
 ```
 
 ### Buscar time por ID
 ```bash
-curl -X GET http://localhost:8080/api/teams/1
+curl -X GET http://localhost:8080/v1/teams/1
 ```
 
 ## 🔧 Configurações

@@ -48,7 +48,7 @@ public class TeamControllerTest {
     void testGetAllTeams() throws Exception {
         when(teamService.getAllTeams()).thenReturn(Arrays.asList(sampleTeam));
 
-        mockMvc.perform(get("/api/teams"))
+        mockMvc.perform(get("/v1/teams"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].name").value("Desenvolvimento"))
                 .andExpect(jsonPath("$[0].email").value("dev@example.com"));
@@ -58,7 +58,7 @@ public class TeamControllerTest {
     void testGetTeamById() throws Exception {
         when(teamService.getTeamById(1L)).thenReturn(Optional.of(sampleTeam));
 
-        mockMvc.perform(get("/api/teams/1"))
+        mockMvc.perform(get("/v1/teams/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Desenvolvimento"));
     }
@@ -67,7 +67,7 @@ public class TeamControllerTest {
     void testGetTeamByIdNotFound() throws Exception {
         when(teamService.getTeamById(anyLong())).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/teams/999"))
+        mockMvc.perform(get("/v1/teams/999"))
                 .andExpect(status().isNotFound());
     }
 
@@ -75,7 +75,7 @@ public class TeamControllerTest {
     void testCreateTeam() throws Exception {
         when(teamService.createTeam(any(Team.class))).thenReturn(sampleTeam);
 
-        mockMvc.perform(post("/api/teams")
+        mockMvc.perform(post("/v1/teams")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sampleTeam)))
                 .andExpect(status().isCreated())
@@ -84,7 +84,7 @@ public class TeamControllerTest {
 
     @Test
     void testDeleteTeam() throws Exception {
-        mockMvc.perform(delete("/api/teams/1"))
+        mockMvc.perform(delete("/v1/teams/1"))
                 .andExpect(status().isOk());
     }
 }

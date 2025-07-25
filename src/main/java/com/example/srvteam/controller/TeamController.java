@@ -12,21 +12,21 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/teams")
+@RequestMapping("/v1/teams")
 @CrossOrigin(origins = "*")
 public class TeamController {
     
     @Autowired
     private TeamService teamService;
     
-    // GET /api/teams - Listar todos os times
+    // GET /v1/teams - Listar todos os times
     @GetMapping
     public ResponseEntity<List<Team>> getAllTeams() {
         List<Team> teams = teamService.getAllTeams();
         return ResponseEntity.ok(teams);
     }
     
-    // GET /api/teams/{id} - Buscar time por ID
+    // GET /v1/teams/{id} - Buscar time por ID
     @GetMapping("/{id}")
     public ResponseEntity<Team> getTeamById(@PathVariable Long id) {
         Optional<Team> team = teamService.getTeamById(id);
@@ -34,7 +34,7 @@ public class TeamController {
                   .orElse(ResponseEntity.notFound().build());
     }
     
-    // GET /api/teams/search?name={name} - Buscar times por nome
+    // GET /v1/teams/search?name={name} - Buscar times por nome
     @GetMapping("/search")
     public ResponseEntity<List<Team>> searchTeams(@RequestParam(required = false) String name,
                                                   @RequestParam(required = false) String lead,
@@ -50,7 +50,7 @@ public class TeamController {
         }
     }
     
-    // POST /api/teams - Criar novo time
+    // POST /v1/teams - Criar novo time
     @PostMapping
     public ResponseEntity<?> createTeam(@Valid @RequestBody Team team) {
         try {
@@ -61,7 +61,7 @@ public class TeamController {
         }
     }
     
-    // PUT /api/teams/{id} - Atualizar time existente
+    // PUT /v1/teams/{id} - Atualizar time existente
     @PutMapping("/{id}")
     public ResponseEntity<?> updateTeam(@PathVariable Long id, @Valid @RequestBody Team teamDetails) {
         try {
@@ -72,7 +72,7 @@ public class TeamController {
         }
     }
     
-    // DELETE /api/teams/{id} - Deletar time
+    // DELETE /v1/teams/{id} - Deletar time
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteTeam(@PathVariable Long id) {
         try {
@@ -83,7 +83,7 @@ public class TeamController {
         }
     }
     
-    // GET /api/teams/name/{name} - Buscar time específico por nome
+    // GET /v1/teams/name/{name} - Buscar time específico por nome
     @GetMapping("/name/{name}")
     public ResponseEntity<Team> getTeamByName(@PathVariable String name) {
         Optional<Team> team = teamService.getTeamByName(name);

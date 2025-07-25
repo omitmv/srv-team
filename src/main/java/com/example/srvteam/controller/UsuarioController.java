@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/usuarios")
+@RequestMapping("/v1/usuarios")
 @CrossOrigin(origins = "*")
 public class UsuarioController {
     
@@ -20,7 +20,7 @@ public class UsuarioController {
     private UsuarioService usuarioService;
     
     /**
-     * POST /api/usuarios - Inserir novo usuário
+     * POST /v1/usuarios - Inserir novo usuário
      */
     @PostMapping
     public ResponseEntity<?> insUsuario(@Valid @RequestBody Usuario usuario) {
@@ -35,7 +35,7 @@ public class UsuarioController {
     }
     
     /**
-     * PUT /api/usuarios/{cdUsuario} - Atualizar usuário existente
+     * PUT /v1/usuarios/{cdUsuario} - Atualizar usuário existente
      */
     @PutMapping("/{cdUsuario}")
     public ResponseEntity<?> updUsuario(@PathVariable Integer cdUsuario, @Valid @RequestBody Usuario usuario) {
@@ -50,7 +50,7 @@ public class UsuarioController {
     }
     
     /**
-     * DELETE /api/usuarios/{cdUsuario} - Deletar usuário
+     * DELETE /v1/usuarios/{cdUsuario} - Deletar usuário
      */
     @DeleteMapping("/{cdUsuario}")
     public ResponseEntity<?> delUsuario(@PathVariable Integer cdUsuario) {
@@ -63,7 +63,7 @@ public class UsuarioController {
     }
     
     /**
-     * GET /api/usuarios/{cdUsuario} - Obter usuário por ID
+     * GET /v1/usuarios/{cdUsuario} - Obter usuário por ID
      */
     @GetMapping("/{cdUsuario}")
     public ResponseEntity<Usuario> getUsuario(@PathVariable Integer cdUsuario) {
@@ -78,7 +78,7 @@ public class UsuarioController {
     }
     
     /**
-     * GET /api/usuarios - Listar todos os usuários
+     * GET /v1/usuarios - Listar todos os usuários
      */
     @GetMapping
     public ResponseEntity<List<Usuario>> getAllUsuarios() {
@@ -89,7 +89,7 @@ public class UsuarioController {
     }
     
     /**
-     * GET /api/usuarios/ativos - Listar usuários ativos
+     * GET /v1/usuarios/ativos - Listar usuários ativos
      */
     @GetMapping("/ativos")
     public ResponseEntity<List<Usuario>> getUsuariosAtivos() {
@@ -100,7 +100,7 @@ public class UsuarioController {
     }
     
     /**
-     * GET /api/usuarios/login/{login} - Buscar usuário por login
+     * GET /v1/usuarios/login/{login} - Buscar usuário por login
      */
     @GetMapping("/login/{login}")
     public ResponseEntity<Usuario> getUsuarioPorLogin(@PathVariable String login) {
@@ -115,7 +115,7 @@ public class UsuarioController {
     }
     
     /**
-     * GET /api/usuarios/email/{email} - Buscar usuário por email
+     * GET /v1/usuarios/email/{email} - Buscar usuário por email
      */
     @GetMapping("/email/{email}")
     public ResponseEntity<Usuario> getUsuarioPorEmail(@PathVariable String email) {
@@ -130,7 +130,7 @@ public class UsuarioController {
     }
     
     /**
-     * POST /api/usuarios/login - Verificar credenciais de login
+     * POST /v1/usuarios/login - Verificar credenciais de login
      */
     @PostMapping("/login")
     public ResponseEntity<?> verificarCredenciais(@RequestBody LoginRequest loginRequest) {
@@ -149,7 +149,7 @@ public class UsuarioController {
     }
     
     /**
-     * PATCH /api/usuarios/{cdUsuario}/inativar - Inativar usuário
+     * PATCH /v1/usuarios/{cdUsuario}/inativar - Inativar usuário
      */
     @PatchMapping("/{cdUsuario}/inativar")
     public ResponseEntity<?> inativarUsuario(@PathVariable Integer cdUsuario) {
@@ -162,7 +162,7 @@ public class UsuarioController {
     }
     
     /**
-     * PATCH /api/usuarios/{cdUsuario}/ativar - Ativar usuário
+     * PATCH /v1/usuarios/{cdUsuario}/ativar - Ativar usuário
      */
     @PatchMapping("/{cdUsuario}/ativar")
     public ResponseEntity<?> ativarUsuario(@PathVariable Integer cdUsuario) {
