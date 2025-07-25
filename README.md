@@ -97,6 +97,22 @@ A aplicação estará disponível em: `http://localhost:8080`
 | PUT | `/api/teams/{id}` | Atualiza time existente |
 | DELETE | `/api/teams/{id}` | Remove time |
 
+### Usuários
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/api/usuarios` | Lista todos os usuários |
+| GET | `/api/usuarios/{cdUsuario}` | Busca usuário por ID |
+| GET | `/api/usuarios/login/{login}` | Busca usuário por login |
+| GET | `/api/usuarios/email/{email}` | Busca usuário por email |
+| GET | `/api/usuarios/ativos` | Lista usuários ativos |
+| POST | `/api/usuarios` | Cria novo usuário |
+| PUT | `/api/usuarios/{cdUsuario}` | Atualiza usuário existente |
+| DELETE | `/api/usuarios/{cdUsuario}` | Remove usuário |
+| POST | `/api/usuarios/login` | Verifica credenciais de login |
+| PATCH | `/api/usuarios/{cdUsuario}/ativar` | Ativa usuário |
+| PATCH | `/api/usuarios/{cdUsuario}/inativar` | Inativa usuário |
+
 ### Exemplo de JSON para Team
 
 ```json
@@ -105,6 +121,28 @@ A aplicação estará disponível em: `http://localhost:8080`
   "description": "Time responsável pelo desenvolvimento de software",
   "email": "dev@example.com",
   "teamLead": "João Silva"
+}
+```
+
+### Exemplo de JSON para Usuario
+
+```json
+{
+  "login": "joao.silva",
+  "senha": "123456",
+  "nome": "João Silva",
+  "email": "joao.silva@example.com",
+  "flAtivo": true,
+  "dtExpiracao": "2024-12-31T23:59:59"
+}
+```
+
+### Exemplo de JSON para Login
+
+```json
+{
+  "login": "joao.silva",
+  "senha": "123456"
 }
 ```
 
@@ -122,9 +160,36 @@ curl -X POST http://localhost:8080/api/teams \
   }'
 ```
 
+### Criar um usuário
+```bash
+curl -X POST http://localhost:8080/api/usuarios \
+  -H "Content-Type: application/json" \
+  -d '{
+    "login": "joao.silva",
+    "senha": "123456",
+    "nome": "João Silva",
+    "email": "joao.silva@example.com"
+  }'
+```
+
+### Fazer login
+```bash
+curl -X POST http://localhost:8080/api/usuarios/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "login": "joao.silva",
+    "senha": "123456"
+  }'
+```
+
 ### Listar todos os times
 ```bash
 curl -X GET http://localhost:8080/api/teams
+```
+
+### Listar usuários ativos
+```bash
+curl -X GET http://localhost:8080/api/usuarios/ativos
 ```
 
 ### Buscar time por ID
