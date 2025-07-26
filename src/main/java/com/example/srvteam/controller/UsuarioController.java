@@ -1,7 +1,10 @@
 package com.example.srvteam.controller;
 
+import com.example.srvteam.dto.LoginRequest;
+import com.example.srvteam.dto.LoginResponse;
 import com.example.srvteam.model.Usuario;
 import com.example.srvteam.service.UsuarioService;
+import com.example.srvteam.util.JwtUtil;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -15,10 +18,13 @@ import java.util.Optional;
 @RequestMapping("/v1/usuarios")
 @CrossOrigin(origins = "*")
 public class UsuarioController {
-    
+
     @Autowired
     private UsuarioService usuarioService;
-    
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
     /**
      * POST /v1/usuarios - Inserir novo usuário
      */
@@ -33,7 +39,7 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-    
+
     /**
      * PUT /v1/usuarios/{cdUsuario} - Atualizar usuário existente
      */
@@ -48,7 +54,7 @@ public class UsuarioController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-    
+
     /**
      * DELETE /v1/usuarios/{cdUsuario} - Deletar usuário
      */
@@ -61,7 +67,7 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * GET /v1/usuarios/{cdUsuario} - Obter usuário por ID
      */
@@ -76,7 +82,7 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * GET /v1/usuarios - Listar todos os usuários
      */
@@ -87,7 +93,7 @@ public class UsuarioController {
         usuarios.forEach(u -> u.setSenha(null));
         return ResponseEntity.ok(usuarios);
     }
-    
+
     /**
      * GET /v1/usuarios/ativos - Listar usuários ativos
      */
@@ -98,7 +104,7 @@ public class UsuarioController {
         usuarios.forEach(u -> u.setSenha(null));
         return ResponseEntity.ok(usuarios);
     }
-    
+
     /**
      * GET /v1/usuarios/login/{login} - Buscar usuário por login
      */
@@ -113,7 +119,7 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * GET /v1/usuarios/email/{email} - Buscar usuário por email
      */
@@ -128,26 +134,36 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
-     * POST /v1/usuarios/login - Verificar credenciais de login
+     * POST /v1/usuarios/login - Autenticar usuário e gerar JWT
      */
     @PostMapping("/login")
-    public ResponseEntity<?> verificarCredenciais(@RequestBody LoginRequest loginRequest) {
-        Optional<Usuario> usuario = usuarioService.verificarCredenciais(
-            loginRequest.getLogin(), 
-            loginRequest.getSenha()
-        );
-        
-        if (usuario.isPresent()) {
-            // Remover senha da resposta por segurança
-            usuario.get().setSenha(null);
-            return ResponseEntity.ok(usuario.get());
-        } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Credenciais inválidas");
+    public ResponseEntity<?> loginUsuario(@Valid @RequestBody LoginRequest loginRequest) {
+        try {
+            // Autentica o usuário
+            Usuario usuario = usuarioService.autenticarUsuario(loginRequest.getLogin(), loginRequest.getSenha());
+
+            // Gera o token JWT
+            String token = jwtUtil.generateToken(usuario.getLogin(), usuario.getCdUsuario(), usuario.getNome());
+
+            // Cria a resposta
+            LoginResponse response = new LoginResponse(
+                    token,
+                    usuario.getCdUsuario(),
+                    usuario.getLogin(),
+                    usuario.getNome(),
+                    usuario.getEmail(),
+                    86400000L // 24 horas em milissegundos
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
     }
-    
+
     /**
      * PATCH /v1/usuarios/{cdUsuario}/inativar - Inativar usuário
      */
@@ -160,7 +176,7 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
-    
+
     /**
      * PATCH /v1/usuarios/{cdUsuario}/ativar - Ativar usuário
      */
@@ -171,28 +187,6 @@ public class UsuarioController {
             return ResponseEntity.ok().body("Usuário ativado com sucesso");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
-        }
-    }
-    
-    // Classe auxiliar para request de login
-    public static class LoginRequest {
-        private String login;
-        private String senha;
-        
-        public String getLogin() {
-            return login;
-        }
-        
-        public void setLogin(String login) {
-            this.login = login;
-        }
-        
-        public String getSenha() {
-            return senha;
-        }
-        
-        public void setSenha(String senha) {
-            this.senha = senha;
         }
     }
 }
