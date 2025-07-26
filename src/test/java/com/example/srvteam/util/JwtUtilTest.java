@@ -13,7 +13,8 @@ class JwtUtilTest {
   @BeforeEach
   void setUp() {
     jwtUtil = new JwtUtil();
-    ReflectionTestUtils.setField(jwtUtil, "secret", "mySecretKey12345678901234567890123456789012345678901234567890");
+    ReflectionTestUtils.setField(jwtUtil, "secret",
+        "MyTestSecureJWTSecretKeyThatIs256BitsLongForHMACAlgorithm1234567890");
     ReflectionTestUtils.setField(jwtUtil, "expiration", 86400000L);
   }
 
