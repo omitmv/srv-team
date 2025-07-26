@@ -25,9 +25,7 @@ public class SecurityConfig {
             // Endpoints públicos (não precisam de autenticação)
             .requestMatchers("/v1/usuarios/login").permitAll()
             .requestMatchers("POST", "/v1/usuarios").permitAll() // Criação de usuário
-            .requestMatchers("/h2-console/**").permitAll()
             .requestMatchers("/actuator/**").permitAll()
-            .requestMatchers("/favicon.ico").permitAll()
 
             // Todos os outros endpoints precisam de autenticação
             .anyRequest().authenticated())
