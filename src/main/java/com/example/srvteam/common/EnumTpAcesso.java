@@ -2,10 +2,11 @@ package com.example.srvteam.common;
 
 public enum EnumTpAcesso {
     ADMINISTRADOR(1, "Administrador"),
-    ATLETA(2, "Atleta"),
+    NUTRITIONISTA(2, "Nutricionista"),
     TREINADOR(3, "Treinador"),
-    NUTRITIONISTA(4, "Nutricionista"),
-    COACH(5, "Coach");
+    COACH(4, "Coach"),
+    FUNCIONARIO(5, "Funcionário"),
+    ATLETA(6, "Atleta");
 
     private final int codigo;
     private final String descricao;
