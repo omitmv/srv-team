@@ -1,4 +1,4 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

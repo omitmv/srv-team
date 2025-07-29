@@ -1,4 +1,4 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.response;
 
 /**
  * DTO para respostas de consultas de GrupoMuscular

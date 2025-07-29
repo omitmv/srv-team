@@ -19,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.ExercicioRequest;
-import com.example.srvteam.dto.ExercicioResponse;
+import com.example.srvteam.dto.request.ExercicioRequest;
+import com.example.srvteam.dto.response.ExercicioResponse;
 import com.example.srvteam.model.Exercicio;
 import com.example.srvteam.service.ExercicioService;
 

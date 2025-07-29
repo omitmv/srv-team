@@ -1,6 +1,6 @@
 package com.example.srvteam.controller;
 
-import com.example.srvteam.dto.LoginRequest;
+import com.example.srvteam.dto.request.LoginRequest;
 import com.example.srvteam.model.Usuario;
 import com.example.srvteam.service.UsuarioService;
 import com.example.srvteam.util.JwtUtil;

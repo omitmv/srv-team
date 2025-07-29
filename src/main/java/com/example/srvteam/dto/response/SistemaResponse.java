@@ -1,16 +1,13 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.response;
 
-/**
- * DTO para respostas de Sistema
- */
 public class SistemaResponse {
     
     private Integer cdSistema;
     private String dsSistema;
     private Boolean flAtivo;
     
-    // Construtores
-    public SistemaResponse() {}
+    public SistemaResponse() {
+    }
     
     public SistemaResponse(Integer cdSistema, String dsSistema, Boolean flAtivo) {
         this.cdSistema = cdSistema;
@@ -18,7 +15,6 @@ public class SistemaResponse {
         this.flAtivo = flAtivo;
     }
     
-    // Getters e Setters
     public Integer getCdSistema() {
         return cdSistema;
     }
@@ -41,14 +37,5 @@ public class SistemaResponse {
     
     public void setFlAtivo(Boolean flAtivo) {
         this.flAtivo = flAtivo;
-    }
-    
-    @Override
-    public String toString() {
-        return "SistemaResponse{" +
-                "cdSistema=" + cdSistema +
-                ", dsSistema='" + dsSistema + '\'' +
-                ", flAtivo=" + flAtivo +
-                '}';
     }
 }

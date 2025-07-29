@@ -20,8 +20,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.SistemaRequest;
-import com.example.srvteam.dto.SistemaResponse;
+import com.example.srvteam.dto.request.SistemaRequest;
+import com.example.srvteam.dto.response.SistemaResponse;
 import com.example.srvteam.model.Sistema;
 import com.example.srvteam.service.SistemaService;
 

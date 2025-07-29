@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.MenuRequest;
-import com.example.srvteam.dto.MenuResponse;
+import com.example.srvteam.dto.request.MenuRequest;
+import com.example.srvteam.dto.response.MenuResponse;
 import com.example.srvteam.model.Menu;
 import com.example.srvteam.service.MenuService;
 

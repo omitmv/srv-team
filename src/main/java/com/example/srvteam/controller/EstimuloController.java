@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.EstimuloRequest;
-import com.example.srvteam.dto.EstimuloResponse;
+import com.example.srvteam.dto.request.EstimuloRequest;
+import com.example.srvteam.dto.response.EstimuloResponse;
 import com.example.srvteam.model.Estimulo;
 import com.example.srvteam.service.EstimuloService;
 

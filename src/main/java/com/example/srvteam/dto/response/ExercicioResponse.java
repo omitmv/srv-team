@@ -1,4 +1,4 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.response;
 
 /**
  * DTO para respostas de consultas de Exercicio
@@ -14,20 +14,8 @@ public class ExercicioResponse {
     // Construtores
     public ExercicioResponse() {}
     
-    public ExercicioResponse(Integer cdExercicio, String dsExercicio, Integer cdGrupoMuscular) {
-        this.cdExercicio = cdExercicio;
-        this.dsExercicio = dsExercicio;
-        this.cdGrupoMuscular = cdGrupoMuscular;
-    }
-    
-    public ExercicioResponse(Integer cdExercicio, String dsExercicio, Integer cdGrupoMuscular, String dsGrupoMuscular) {
-        this.cdExercicio = cdExercicio;
-        this.dsExercicio = dsExercicio;
-        this.cdGrupoMuscular = cdGrupoMuscular;
-        this.dsGrupoMuscular = dsGrupoMuscular;
-    }
-    
-    public ExercicioResponse(Integer cdExercicio, String dsExercicio, Integer cdGrupoMuscular, String dsGrupoMuscular, String video) {
+    public ExercicioResponse(Integer cdExercicio, String dsExercicio, Integer cdGrupoMuscular, 
+                           String dsGrupoMuscular, String video) {
         this.cdExercicio = cdExercicio;
         this.dsExercicio = dsExercicio;
         this.cdGrupoMuscular = cdGrupoMuscular;

@@ -1,14 +1,13 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.response;
 
 public class LoginResponse {
 
   private String token;
-  private String tipo = "Bearer";
   private Integer cdUsuario;
   private String login;
   private String nome;
   private String email;
-  private Long expiresIn; // Em milissegundos
+  private Long expiresIn;
 
   // Constructors
   public LoginResponse() {
@@ -30,14 +29,6 @@ public class LoginResponse {
 
   public void setToken(String token) {
     this.token = token;
-  }
-
-  public String getTipo() {
-    return tipo;
-  }
-
-  public void setTipo(String tipo) {
-    this.tipo = tipo;
   }
 
   public Integer getCdUsuario() {

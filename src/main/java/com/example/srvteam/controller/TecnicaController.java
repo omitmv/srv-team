@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.TecnicaRequest;
-import com.example.srvteam.dto.TecnicaResponse;
+import com.example.srvteam.dto.request.TecnicaRequest;
+import com.example.srvteam.dto.response.TecnicaResponse;
 import com.example.srvteam.model.Tecnica;
 import com.example.srvteam.service.TecnicaService;
 

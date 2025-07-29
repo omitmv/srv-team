@@ -18,8 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.srvteam.dto.GrupoMuscularRequest;
-import com.example.srvteam.dto.GrupoMuscularResponse;
+import com.example.srvteam.dto.request.GrupoMuscularRequest;
+import com.example.srvteam.dto.response.GrupoMuscularResponse;
 import com.example.srvteam.model.GrupoMuscular;
 import com.example.srvteam.service.GrupoMuscularService;
 

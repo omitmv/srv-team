@@ -1,22 +1,13 @@
-package com.example.srvteam.dto;
+package com.example.srvteam.dto.response;
 
-/**
- * DTO para respostas de consultas de Menu
- */
 public class MenuResponse {
     
     private Integer cdMenu;
     private String dsMenu;
     private Integer cdSistema;
-    private String dsSistema; // Incluído para facilitar a exibição
+    private String dsSistema;
     
-    // Construtores
-    public MenuResponse() {}
-    
-    public MenuResponse(Integer cdMenu, String dsMenu, Integer cdSistema) {
-        this.cdMenu = cdMenu;
-        this.dsMenu = dsMenu;
-        this.cdSistema = cdSistema;
+    public MenuResponse() {
     }
     
     public MenuResponse(Integer cdMenu, String dsMenu, Integer cdSistema, String dsSistema) {
@@ -26,7 +17,6 @@ public class MenuResponse {
         this.dsSistema = dsSistema;
     }
     
-    // Getters e Setters
     public Integer getCdMenu() {
         return cdMenu;
     }
@@ -57,15 +47,5 @@ public class MenuResponse {
     
     public void setDsSistema(String dsSistema) {
         this.dsSistema = dsSistema;
-    }
-    
-    @Override
-    public String toString() {
-        return "MenuResponse{" +
-                "cdMenu=" + cdMenu +
-                ", dsMenu='" + dsMenu + '\'' +
-                ", cdSistema=" + cdSistema +
-                ", dsSistema='" + dsSistema + '\'' +
-                '}';
     }
 }
