@@ -1,6 +1,5 @@
 package com.example.srvteam.config;
 
-import com.example.srvteam.filter.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +8,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.example.srvteam.filter.JwtAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -23,8 +24,8 @@ public class SecurityConfig {
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(authz -> authz
             // Endpoints públicos (não precisam de autenticação)
-            .requestMatchers("/v1/usuarios/login").permitAll()
-            .requestMatchers("POST", "/v1/usuarios").permitAll() // Criação de usuário
+            .requestMatchers("/v1/usuario/login").permitAll()
+            .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
             .requestMatchers("/actuator/**").permitAll()
 
             // Todos os outros endpoints precisam de autenticação
