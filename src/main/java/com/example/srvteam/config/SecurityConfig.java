@@ -31,7 +31,6 @@ public class SecurityConfig {
             // Endpoints públicos (não precisam de autenticação)
             .requestMatchers("/v1/usuario/login").permitAll()
             .requestMatchers("/auth/login").permitAll()
-            .requestMatchers("/v1/tipo-acesso").permitAll()
             .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
             .requestMatchers("/actuator/**").permitAll()
 
