@@ -8,7 +8,6 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfigurationSource;
 
 import com.example.srvteam.filter.JwtAuthenticationFilter;
 
@@ -19,18 +18,13 @@ public class SecurityConfig {
   @Autowired
   private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-  @Autowired
-  private CorsConfigurationSource corsConfigurationSource;
-
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http.cors(cors -> cors.configurationSource(corsConfigurationSource))
-        .csrf(csrf -> csrf.disable())
+    http.csrf(csrf -> csrf.disable())
         .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(authz -> authz
             // Endpoints públicos (não precisam de autenticação)
             .requestMatchers("/v1/usuario/login").permitAll()
-            .requestMatchers("/auth/login").permitAll()
             .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
             .requestMatchers("/actuator/**").permitAll()
 
