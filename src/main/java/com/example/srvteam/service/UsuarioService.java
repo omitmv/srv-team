@@ -1,14 +1,16 @@
 package com.example.srvteam.service;
 
-import com.example.srvteam.model.Usuario;
-import com.example.srvteam.repository.UsuarioRepository;
-import com.example.srvteam.util.PasswordUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.srvteam.common.EnumTpAcesso;
+import com.example.srvteam.model.Usuario;
+import com.example.srvteam.repository.UsuarioRepository;
+import com.example.srvteam.util.PasswordUtil;
 
 @Service
 public class UsuarioService {
@@ -40,6 +42,11 @@ public class UsuarioService {
         // Definir valores padrão se não informados
         if (usuario.getFlAtivo() == null) {
             usuario.setFlAtivo(true);
+        }
+        
+        // Definir tipo de acesso padrão se não informado
+        if (usuario.getCdTpAcesso() == null) {
+            usuario.setCdTpAcesso(EnumTpAcesso.ATLETA.getCodigo());
         }
 
         return usuarioRepository.save(usuario);
@@ -74,6 +81,11 @@ public class UsuarioService {
         usuario.setEmail(usuarioAtualizado.getEmail());
         usuario.setFlAtivo(usuarioAtualizado.getFlAtivo());
         usuario.setDtExpiracao(usuarioAtualizado.getDtExpiracao());
+        
+        // Atualizar tipo de acesso se informado
+        if (usuarioAtualizado.getCdTpAcesso() != null) {
+            usuario.setCdTpAcesso(usuarioAtualizado.getCdTpAcesso());
+        }
 
         // Se a senha foi informada, criptografar
         if (usuarioAtualizado.getSenha() != null && !usuarioAtualizado.getSenha().isEmpty()) {

@@ -2,6 +2,7 @@ package com.example.srvteam.controller;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,10 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.srvteam.dto.request.LoginRequest;
+import com.example.srvteam.dto.request.UsuarioRequest;
 import com.example.srvteam.dto.response.LoginResponse;
+import com.example.srvteam.dto.response.UsuarioResponse;
 import com.example.srvteam.model.Usuario;
 import com.example.srvteam.service.UsuarioService;
 import com.example.srvteam.util.JwtUtil;
+import com.example.srvteam.util.UsuarioMapper;
 
 import jakarta.validation.Valid;
 
@@ -40,12 +44,12 @@ public class UsuarioController {
      * POST /v1/usuarios - Inserir novo usuário
      */
     @PostMapping
-    public ResponseEntity<?> insUsuario(@Valid @RequestBody Usuario usuario) {
+    public ResponseEntity<?> insUsuario(@Valid @RequestBody UsuarioRequest usuarioRequest) {
         try {
+            Usuario usuario = UsuarioMapper.toEntity(usuarioRequest);
             Usuario usuarioCriado = usuarioService.insUsuario(usuario);
-            // Remover senha da resposta por segurança
-            usuarioCriado.setSenha(null);
-            return ResponseEntity.status(HttpStatus.CREATED).body(usuarioCriado);
+            UsuarioResponse response = UsuarioMapper.toResponse(usuarioCriado);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -55,12 +59,12 @@ public class UsuarioController {
      * PUT /v1/usuarios/{cdUsuario} - Atualizar usuário existente
      */
     @PutMapping("/{cdUsuario}")
-    public ResponseEntity<?> updUsuario(@PathVariable Integer cdUsuario, @Valid @RequestBody Usuario usuario) {
+    public ResponseEntity<?> updUsuario(@PathVariable Integer cdUsuario, @Valid @RequestBody UsuarioRequest usuarioRequest) {
         try {
+            Usuario usuario = UsuarioMapper.toEntity(usuarioRequest);
             Usuario usuarioAtualizado = usuarioService.updUsuario(cdUsuario, usuario);
-            // Remover senha da resposta por segurança
-            usuarioAtualizado.setSenha(null);
-            return ResponseEntity.ok(usuarioAtualizado);
+            UsuarioResponse response = UsuarioMapper.toResponse(usuarioAtualizado);
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -83,12 +87,11 @@ public class UsuarioController {
      * GET /v1/usuarios/{cdUsuario} - Obter usuário por ID
      */
     @GetMapping("/{cdUsuario}")
-    public ResponseEntity<Usuario> getUsuario(@PathVariable Integer cdUsuario) {
+    public ResponseEntity<UsuarioResponse> getUsuario(@PathVariable Integer cdUsuario) {
         Optional<Usuario> usuario = usuarioService.getUsuario(cdUsuario);
         if (usuario.isPresent()) {
-            // Remover senha da resposta por segurança
-            usuario.get().setSenha(null);
-            return ResponseEntity.ok(usuario.get());
+            UsuarioResponse response = UsuarioMapper.toResponse(usuario.get());
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -98,34 +101,35 @@ public class UsuarioController {
      * GET /v1/usuarios - Listar todos os usuários
      */
     @GetMapping
-    public ResponseEntity<List<Usuario>> getAllUsuarios() {
+    public ResponseEntity<List<UsuarioResponse>> getAllUsuarios() {
         List<Usuario> usuarios = usuarioService.getAllUsuarios();
-        // Remover senhas da resposta por segurança
-        usuarios.forEach(u -> u.setSenha(null));
-        return ResponseEntity.ok(usuarios);
+        List<UsuarioResponse> response = usuarios.stream()
+                .map(UsuarioMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 
     /**
      * GET /v1/usuarios/ativos - Listar usuários ativos
      */
     @GetMapping("/ativos")
-    public ResponseEntity<List<Usuario>> getUsuariosAtivos() {
+    public ResponseEntity<List<UsuarioResponse>> getUsuariosAtivos() {
         List<Usuario> usuarios = usuarioService.getUsuariosAtivos();
-        // Remover senhas da resposta por segurança
-        usuarios.forEach(u -> u.setSenha(null));
-        return ResponseEntity.ok(usuarios);
+        List<UsuarioResponse> response = usuarios.stream()
+                .map(UsuarioMapper::toResponse)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(response);
     }
 
     /**
      * GET /v1/usuarios/login/{login} - Buscar usuário por login
      */
     @GetMapping("/login/{login}")
-    public ResponseEntity<Usuario> getUsuarioPorLogin(@PathVariable String login) {
+    public ResponseEntity<UsuarioResponse> getUsuarioPorLogin(@PathVariable String login) {
         Optional<Usuario> usuario = usuarioService.getUsuarioPorLogin(login);
         if (usuario.isPresent()) {
-            // Remover senha da resposta por segurança
-            usuario.get().setSenha(null);
-            return ResponseEntity.ok(usuario.get());
+            UsuarioResponse response = UsuarioMapper.toResponse(usuario.get());
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -135,12 +139,11 @@ public class UsuarioController {
      * GET /v1/usuarios/email/{email} - Buscar usuário por email
      */
     @GetMapping("/email/{email}")
-    public ResponseEntity<Usuario> getUsuarioPorEmail(@PathVariable String email) {
+    public ResponseEntity<UsuarioResponse> getUsuarioPorEmail(@PathVariable String email) {
         Optional<Usuario> usuario = usuarioService.getUsuarioPorEmail(email);
         if (usuario.isPresent()) {
-            // Remover senha da resposta por segurança
-            usuario.get().setSenha(null);
-            return ResponseEntity.ok(usuario.get());
+            UsuarioResponse response = UsuarioMapper.toResponse(usuario.get());
+            return ResponseEntity.ok(response);
         } else {
             return ResponseEntity.notFound().build();
         }
@@ -165,7 +168,8 @@ public class UsuarioController {
                     usuario.getLogin(),
                     usuario.getNome(),
                     usuario.getEmail(),
-                    86400000L // 24 horas em milissegundos
+                    86400000L, // 24 horas em milissegundos
+                    usuario.getCdTpAcesso()
             );
 
             return ResponseEntity.ok(response);

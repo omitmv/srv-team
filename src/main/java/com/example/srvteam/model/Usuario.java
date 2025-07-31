@@ -1,12 +1,21 @@
 package com.example.srvteam.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import java.time.LocalDateTime;
+
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.time.LocalDateTime;
+import com.example.srvteam.common.EnumTpAcesso;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "tbUsuario")
@@ -47,6 +56,10 @@ public class Usuario {
     @Column(name = "dtExpiracao")
     private LocalDateTime dtExpiracao;
     
+    @NotNull(message = "Tipo de acesso é obrigatório")
+    @Column(name = "cdTpAcesso", nullable = false)
+    private Integer cdTpAcesso;
+    
     // Construtores
     public Usuario() {}
     
@@ -56,6 +69,16 @@ public class Usuario {
         this.nome = nome;
         this.email = email;
         this.flAtivo = true;
+        this.cdTpAcesso = EnumTpAcesso.ATLETA.getCodigo(); // Valor padrão
+    }
+    
+    public Usuario(String login, String senha, String nome, String email, Integer cdTpAcesso) {
+        this.login = login;
+        this.senha = senha;
+        this.nome = nome;
+        this.email = email;
+        this.flAtivo = true;
+        this.cdTpAcesso = cdTpAcesso;
     }
     
     // Getters e Setters
@@ -123,6 +146,24 @@ public class Usuario {
         this.dtExpiracao = dtExpiracao;
     }
     
+    public Integer getCdTpAcesso() {
+        return cdTpAcesso;
+    }
+    
+    public void setCdTpAcesso(Integer cdTpAcesso) {
+        this.cdTpAcesso = cdTpAcesso;
+    }
+    
+    public EnumTpAcesso getTipoAcesso() {
+        if (cdTpAcesso == null) return null;
+        for (EnumTpAcesso tipo : EnumTpAcesso.values()) {
+            if (tipo.getCodigo() == cdTpAcesso) {
+                return tipo;
+            }
+        }
+        return null;
+    }
+    
     @Override
     public String toString() {
         return "Usuario{" +
@@ -133,6 +174,7 @@ public class Usuario {
                 ", dataCadastro=" + dataCadastro +
                 ", flAtivo=" + flAtivo +
                 ", dtExpiracao=" + dtExpiracao +
+                ", cdTpAcesso=" + cdTpAcesso +
                 '}';
     }
 }
