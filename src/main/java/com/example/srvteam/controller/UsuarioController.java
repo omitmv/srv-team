@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.srvteam.dto.request.FiltroTiposAcessoRequest;
 import com.example.srvteam.dto.request.LoginRequest;
 import com.example.srvteam.dto.request.UsuarioRequest;
 import com.example.srvteam.dto.response.LoginResponse;
@@ -204,4 +206,71 @@ public class UsuarioController {
             return ResponseEntity.notFound().build();
         }
     }
+
+    /**
+     * POST /v1/usuario/filtrar-por-tipos - Listar usuários por tipos de acesso
+     */
+    @PostMapping("/filtrar-por-tipos")
+    public ResponseEntity<?> getUsuariosPorTiposAcesso(@Valid @RequestBody FiltroTiposAcessoRequest filtroRequest) {
+        try {
+            List<Usuario> usuarios;
+            
+            if (filtroRequest.isApenasAtivos()) {
+                usuarios = usuarioService.getUsuariosAtivosPorTiposAcesso(filtroRequest.getCdTpAcessos());
+            } else {
+                usuarios = usuarioService.getUsuariosPorTiposAcesso(filtroRequest.getCdTpAcessos());
+            }
+            
+            List<UsuarioResponse> response = usuarios.stream()
+                    .map(UsuarioMapper::toResponse)
+                    .collect(Collectors.toList());
+                    
+            return ResponseEntity.ok(response);
+            
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * GET /v1/usuario/filtrar-por-tipos/{cdTpAcessos} - Listar usuários por tipos de acesso via GET
+     * Aceita códigos separados por vírgula: /v1/usuario/filtrar-por-tipos/1,2,3
+     */
+    @GetMapping("/filtrar-por-tipos/{cdTpAcessos}")
+    public ResponseEntity<?> getUsuariosPorTiposAcessoGet(
+            @PathVariable String cdTpAcessos,
+            @RequestParam(defaultValue = "true") boolean apenasAtivos) {
+        try {
+            // Converte a string de códigos separados por vírgula em lista de integers
+            List<Integer> tiposAcesso = java.util.Arrays.stream(cdTpAcessos.split(","))
+                    .map(String::trim)
+                    .map(Integer::parseInt)
+                    .collect(Collectors.toList());
+            
+            if (tiposAcesso.isEmpty()) {
+                return ResponseEntity.badRequest().body("Lista de tipos de acesso não pode ser vazia");
+            }
+            
+            List<Usuario> usuarios;
+            
+            if (apenasAtivos) {
+                usuarios = usuarioService.getUsuariosAtivosPorTiposAcesso(tiposAcesso);
+            } else {
+                usuarios = usuarioService.getUsuariosPorTiposAcesso(tiposAcesso);
+            }
+            
+            List<UsuarioResponse> response = usuarios.stream()
+                    .map(UsuarioMapper::toResponse)
+                    .collect(Collectors.toList());
+                    
+            return ResponseEntity.ok(response);
+            
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body("Códigos de tipo de acesso devem ser números válidos");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    
 }

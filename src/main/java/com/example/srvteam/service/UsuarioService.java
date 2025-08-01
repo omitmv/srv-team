@@ -238,4 +238,60 @@ public class UsuarioService {
 
         return usuario;
     }
+
+    /**
+     * Buscar usuários por tipos de acesso
+     * 
+     * @param cdTpAcessos Lista de códigos de tipos de acesso
+     * @return Lista de usuários
+     */
+    public List<Usuario> getUsuariosPorTiposAcesso(List<Integer> cdTpAcessos) {
+        if (cdTpAcessos == null || cdTpAcessos.isEmpty()) {
+            throw new IllegalArgumentException("Lista de tipos de acesso não pode ser vazia");
+        }
+        
+        // Validar se os códigos são válidos
+        for (Integer codigo : cdTpAcessos) {
+            boolean codigoValido = false;
+            for (EnumTpAcesso tipo : EnumTpAcesso.values()) {
+                if (tipo.getCodigo() == codigo) {
+                    codigoValido = true;
+                    break;
+                }
+            }
+            if (!codigoValido) {
+                throw new IllegalArgumentException("Código de tipo de acesso inválido: " + codigo);
+            }
+        }
+        
+        return usuarioRepository.findByCdTpAcessoIn(cdTpAcessos);
+    }
+
+    /**
+     * Buscar usuários ativos por tipos de acesso
+     * 
+     * @param cdTpAcessos Lista de códigos de tipos de acesso
+     * @return Lista de usuários ativos
+     */
+    public List<Usuario> getUsuariosAtivosPorTiposAcesso(List<Integer> cdTpAcessos) {
+        if (cdTpAcessos == null || cdTpAcessos.isEmpty()) {
+            throw new IllegalArgumentException("Lista de tipos de acesso não pode ser vazia");
+        }
+        
+        // Validar se os códigos são válidos
+        for (Integer codigo : cdTpAcessos) {
+            boolean codigoValido = false;
+            for (EnumTpAcesso tipo : EnumTpAcesso.values()) {
+                if (tipo.getCodigo() == codigo) {
+                    codigoValido = true;
+                    break;
+                }
+            }
+            if (!codigoValido) {
+                throw new IllegalArgumentException("Código de tipo de acesso inválido: " + codigo);
+            }
+        }
+        
+        return usuarioRepository.findByCdTpAcessoInAndFlAtivoTrue(cdTpAcessos);
+    }
 }

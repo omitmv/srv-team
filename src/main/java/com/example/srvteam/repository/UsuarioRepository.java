@@ -1,13 +1,14 @@
 package com.example.srvteam.repository;
 
-import com.example.srvteam.model.Usuario;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import com.example.srvteam.model.Usuario;
 
 @Repository
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
@@ -40,4 +41,10 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     // Query customizada para buscar usuários ativos por email ou login
     @Query("SELECT u FROM Usuario u WHERE (u.email = :emailOuLogin OR u.login = :emailOuLogin) AND u.flAtivo = true")
     Optional<Usuario> findByEmailOrLoginAndFlAtivoTrue(@Param("emailOuLogin") String emailOuLogin);
+    
+    // Buscar usuários por tipos de acesso
+    List<Usuario> findByCdTpAcessoIn(List<Integer> cdTpAcessos);
+    
+    // Buscar usuários ativos por tipos de acesso
+    List<Usuario> findByCdTpAcessoInAndFlAtivoTrue(List<Integer> cdTpAcessos);
 }
