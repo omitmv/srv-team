@@ -1,6 +1,6 @@
 package com.example.srvteam.dto.request;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -18,12 +18,12 @@ public class TreinoRequest {
     private String dsTreino;
     
     @NotNull(message = "Data de início é obrigatória")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime dtInicio;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate dtInicio;
     
     @NotNull(message = "Data final é obrigatória")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime dtFinal;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate dtFinal;
     
     @NotNull(message = "Profissional é obrigatório")
     private Integer cdProfissional;
@@ -37,7 +37,7 @@ public class TreinoRequest {
     // Construtores
     public TreinoRequest() {}
     
-    public TreinoRequest(String dsTreino, LocalDateTime dtInicio, LocalDateTime dtFinal, 
+    public TreinoRequest(String dsTreino, LocalDate dtInicio, LocalDate dtFinal, 
                         Integer cdProfissional, Integer cdAtleta) {
         this.dsTreino = dsTreino;
         this.dtInicio = dtInicio;
@@ -46,7 +46,7 @@ public class TreinoRequest {
         this.cdAtleta = cdAtleta;
     }
     
-    public TreinoRequest(String dsTreino, LocalDateTime dtInicio, LocalDateTime dtFinal, 
+    public TreinoRequest(String dsTreino, LocalDate dtInicio, LocalDate dtFinal, 
                         Integer cdProfissional, Integer cdAtleta, String obs) {
         this.dsTreino = dsTreino;
         this.dtInicio = dtInicio;
@@ -65,19 +65,19 @@ public class TreinoRequest {
         this.dsTreino = dsTreino;
     }
     
-    public LocalDateTime getDtInicio() {
+    public LocalDate getDtInicio() {
         return dtInicio;
     }
     
-    public void setDtInicio(LocalDateTime dtInicio) {
+    public void setDtInicio(LocalDate dtInicio) {
         this.dtInicio = dtInicio;
     }
     
-    public LocalDateTime getDtFinal() {
+    public LocalDate getDtFinal() {
         return dtFinal;
     }
     
-    public void setDtFinal(LocalDateTime dtFinal) {
+    public void setDtFinal(LocalDate dtFinal) {
         this.dtFinal = dtFinal;
     }
     

@@ -13,7 +13,6 @@ public class UsuarioRequest {
     @Size(max = 250, message = "Login não pode exceder 250 caracteres")
     private String login;
 
-    @NotBlank(message = "Senha é obrigatória")
     private String senha;
 
     @NotBlank(message = "Nome é obrigatório")

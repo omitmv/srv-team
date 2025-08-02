@@ -76,14 +76,24 @@ public class UsuarioService {
         }
 
         // Atualizar campos
-        usuario.setLogin(usuarioAtualizado.getLogin());
-        usuario.setNome(usuarioAtualizado.getNome());
-        usuario.setEmail(usuarioAtualizado.getEmail());
-        usuario.setFlAtivo(usuarioAtualizado.getFlAtivo());
-        usuario.setDtExpiracao(usuarioAtualizado.getDtExpiracao());
+        if (usuarioAtualizado.getLogin() != null && !usuarioAtualizado.getLogin().isEmpty()) {
+            usuario.setLogin(usuarioAtualizado.getLogin());
+        }
+        if (usuarioAtualizado.getNome() != null && !usuarioAtualizado.getNome().isEmpty()) {
+            usuario.setNome(usuarioAtualizado.getNome());
+        }
+        if (usuarioAtualizado.getEmail() != null && !usuarioAtualizado.getEmail().isEmpty()) {
+            usuario.setEmail(usuarioAtualizado.getEmail());
+        }
+        if (usuarioAtualizado.getFlAtivo() != null && usuarioAtualizado.getFlAtivo() != usuario.getFlAtivo()) {
+            usuario.setFlAtivo(usuarioAtualizado.getFlAtivo());
+        }
+        if (usuarioAtualizado.getDtExpiracao() != null && !usuarioAtualizado.getDtExpiracao().equals(usuario.getDtExpiracao())) {
+            usuario.setDtExpiracao(usuarioAtualizado.getDtExpiracao());
+        }
         
         // Atualizar tipo de acesso se informado
-        if (usuarioAtualizado.getCdTpAcesso() != null) {
+        if (usuarioAtualizado.getCdTpAcesso() != null && !usuarioAtualizado.getCdTpAcesso().equals(usuario.getCdTpAcesso()) ) {
             usuario.setCdTpAcesso(usuarioAtualizado.getCdTpAcesso());
         }
 

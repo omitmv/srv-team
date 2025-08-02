@@ -1,5 +1,6 @@
 package com.example.srvteam.dto.response;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -15,11 +16,11 @@ public class TreinoResponse {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime dtCadastro;
     
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime dtInicio;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate dtInicio;
     
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
-    private LocalDateTime dtFinal;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate dtFinal;
     
     private Integer cdProfissional;
     private String nomeProfissional; // Incluído para facilitar a exibição
@@ -33,7 +34,7 @@ public class TreinoResponse {
     public TreinoResponse() {}
     
     public TreinoResponse(Integer cdTreino, String dsTreino, LocalDateTime dtCadastro,
-                         LocalDateTime dtInicio, LocalDateTime dtFinal, Integer cdProfissional,
+                         LocalDate dtInicio, LocalDate dtFinal, Integer cdProfissional,
                          String nomeProfissional, Integer cdAtleta, String nomeAtleta, String obs) {
         this.cdTreino = cdTreino;
         this.dsTreino = dsTreino;
@@ -72,19 +73,19 @@ public class TreinoResponse {
         this.dtCadastro = dtCadastro;
     }
     
-    public LocalDateTime getDtInicio() {
+    public LocalDate getDtInicio() {
         return dtInicio;
     }
     
-    public void setDtInicio(LocalDateTime dtInicio) {
+    public void setDtInicio(LocalDate dtInicio) {
         this.dtInicio = dtInicio;
     }
     
-    public LocalDateTime getDtFinal() {
+    public LocalDate getDtFinal() {
         return dtFinal;
     }
     
-    public void setDtFinal(LocalDateTime dtFinal) {
+    public void setDtFinal(LocalDate dtFinal) {
         this.dtFinal = dtFinal;
     }
     
