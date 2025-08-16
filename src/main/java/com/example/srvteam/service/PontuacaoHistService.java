@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -26,7 +24,6 @@ import jakarta.transaction.Transactional;
 
 @Service
 public class PontuacaoHistService {
-    private static final Logger logger = LoggerFactory.getLogger(PontuacaoHistService.class);
     @Autowired
     private CompetidoresRepository competidoresRepository;
 
@@ -115,6 +112,18 @@ public class PontuacaoHistService {
         String nome = result[0] != null ? result[0].toString() : "";
         String nmCompeticao = result[1] != null ? result[1].toString() : "";
         BigDecimal totalPontuacao = result[2] != null ? new BigDecimal(result[2].toString()) : BigDecimal.ZERO;
+        return new PontuacaoHistResumoResponse(nome, nmCompeticao, totalPontuacao);
+    }
+
+    public PontuacaoHistResumoResponse getResumoCompeticao(Integer cdCompeticao) {
+        java.util.List<Object[]> results = pontuacaoHistRepository.findResumoCompeticao(cdCompeticao);
+        if (results == null || results.isEmpty()) {
+            return null;
+        }
+        Object[] result = results.get(0);
+        String nome = result[0] != null ? result[0].toString() : "";
+        String nmCompeticao = result[1] != null ? result[1].toString() : "";
+        java.math.BigDecimal totalPontuacao = result[2] != null ? new java.math.BigDecimal(result[2].toString()) : java.math.BigDecimal.ZERO;
         return new PontuacaoHistResumoResponse(nome, nmCompeticao, totalPontuacao);
     }
 }

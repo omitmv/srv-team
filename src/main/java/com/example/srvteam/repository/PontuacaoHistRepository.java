@@ -17,4 +17,6 @@ public interface PontuacaoHistRepository extends JpaRepository<PontuacaoHist, In
 	List<PontuacaoHist> findByCdCompetidorAndDtCadastroBetween(Integer cdCompetidor, LocalDateTime inicio, LocalDateTime fim);
 	@Query(value = "select c.nome, d.nm_competicao as nmCompeticao, SUM(b.pontuacao) as totalPontuacao from tb_pontuacao_hist a inner join tb_pontuacao b ON( b.cd_pontuacao = a.cd_pontuacao ) inner join tb_usuario c ON( c.cd_usuario = a.cd_competidor ) inner join tb_competicao d ON( d.cd_competicao = a.cd_competicao ) where a.cd_competidor = :cdCompetidor and a.cd_competicao = :cdCompeticao GROUP BY c.nome, d.nm_competicao", nativeQuery = true)
 	java.util.List<Object[]> findPontuacaoHistResumo(@Param("cdCompetidor") Integer cdCompetidor, @Param("cdCompeticao") Integer cdCompeticao);
+	@Query(value = "select c.nome, d.nm_competicao as nmCompeticao, SUM(b.pontuacao) as totalPontuacao from tb_pontuacao_hist a inner join tb_pontuacao b ON( b.cd_pontuacao = a.cd_pontuacao ) inner join tb_usuario c ON( c.cd_usuario = a.cd_competidor ) inner join tb_competicao d ON( d.cd_competicao = a.cd_competicao ) where a.cd_competicao = :cdCompeticao GROUP BY c.nome, d.nm_competicao", nativeQuery = true)
+	List<Object[]> findResumoCompeticao(@Param("cdCompeticao") Integer cdCompeticao);
 }
