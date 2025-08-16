@@ -115,15 +115,18 @@ public class PontuacaoHistService {
         return new PontuacaoHistResumoResponse(nome, nmCompeticao, totalPontuacao);
     }
 
-    public PontuacaoHistResumoResponse getResumoCompeticao(Integer cdCompeticao) {
+    public List<PontuacaoHistResumoResponse> getResumoCompeticao(Integer cdCompeticao) {
         java.util.List<Object[]> results = pontuacaoHistRepository.findResumoCompeticao(cdCompeticao);
         if (results == null || results.isEmpty()) {
-            return null;
+            return java.util.Collections.emptyList();
         }
-        Object[] result = results.get(0);
+        return results.stream().map(this::toPontuacaoHistResumoResponse).collect(Collectors.toList());
+    }
+
+    private PontuacaoHistResumoResponse toPontuacaoHistResumoResponse(Object[] result) {
         String nome = result[0] != null ? result[0].toString() : "";
         String nmCompeticao = result[1] != null ? result[1].toString() : "";
-        java.math.BigDecimal totalPontuacao = result[2] != null ? new java.math.BigDecimal(result[2].toString()) : java.math.BigDecimal.ZERO;
+        BigDecimal totalPontuacao = result[2] != null ? new BigDecimal(result[2].toString()) : BigDecimal.ZERO;
         return new PontuacaoHistResumoResponse(nome, nmCompeticao, totalPontuacao);
     }
 }

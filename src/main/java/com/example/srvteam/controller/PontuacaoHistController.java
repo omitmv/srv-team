@@ -92,9 +92,9 @@ public class PontuacaoHistController {
     }
 
     @GetMapping("/resumoCompeticao")
-    public ResponseEntity<PontuacaoHistResumoResponse> getResumoCompeticao(@RequestParam Integer cdCompeticao) {
-        PontuacaoHistResumoResponse resumo = pontuacaoHistService.getResumoCompeticao(cdCompeticao);
-        if (resumo == null) {
+    public ResponseEntity<List<PontuacaoHistResumoResponse>> getResumoCompeticao(@RequestParam Integer cdCompeticao) {
+        List<PontuacaoHistResumoResponse> resumo = pontuacaoHistService.getResumoCompeticao(cdCompeticao);
+        if (resumo == null || resumo.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(resumo);

@@ -2,8 +2,6 @@ package com.example.srvteam.controller;
 
 import java.util.List;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,9 +25,6 @@ import jakarta.validation.Valid;
 @RequestMapping("/v1/competicao")
 @PreAuthorize("isAuthenticated()")
 public class CompeticaoController {
-
-    private static final Logger logger = LoggerFactory.getLogger(CompeticaoController.class);
-
     @Autowired
     private CompeticaoService competicaoService;
 
