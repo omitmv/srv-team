@@ -1,3 +1,4 @@
+
 package com.example.srvteam.repository;
 
 import java.time.LocalDateTime;
@@ -10,7 +11,7 @@ import com.example.srvteam.model.PontuacaoHist;
 
 @Repository
 public interface PontuacaoHistRepository extends JpaRepository<PontuacaoHist, Integer> {
-    List<PontuacaoHist> findByCdCompeticao(Integer cdCompeticao);
-    List<PontuacaoHist> findByCdCompetidorAndCdCompeticao(Integer cdCompetidor, Integer cdCompeticao);
-    List<PontuacaoHist> findByCdCompetidorAndDtCadastroBetween(Integer cdCompetidor, LocalDateTime inicio, LocalDateTime fim);
+	List<PontuacaoHist> findByCdCompeticao(Integer cdCompeticao);
+	List<PontuacaoHist> findByCdCompetidorAndCdCompeticao(Integer cdCompetidor, Integer cdCompeticao);
+	List<PontuacaoHist> findByCdCompetidorAndDtCadastroBetween(Integer cdCompetidor, LocalDateTime inicio, LocalDateTime fim);
 }

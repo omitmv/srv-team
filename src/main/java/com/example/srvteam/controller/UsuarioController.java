@@ -32,7 +32,7 @@ import com.example.srvteam.util.UsuarioMapper;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/v1/usuario")
+@RequestMapping("/v1/usuarios")
 @CrossOrigin(origins = "*")
 public class UsuarioController {
 
@@ -79,7 +79,7 @@ public class UsuarioController {
     public ResponseEntity<?> delUsuario(@PathVariable Integer cdUsuario) {
         try {
             usuarioService.delUsuario(cdUsuario);
-            return ResponseEntity.ok().body("Usuário deletado com sucesso");
+            return ResponseEntity.ok().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
@@ -157,25 +157,18 @@ public class UsuarioController {
     @PostMapping("/login")
     public ResponseEntity<?> loginUsuario(@Valid @RequestBody LoginRequest loginRequest) {
         try {
-            // Autentica o usuário
             Usuario usuario = usuarioService.autenticarUsuario(loginRequest.getLogin(), loginRequest.getSenha());
-
-            // Gera o token JWT
             String token = jwtUtil.generateToken(usuario.getLogin(), usuario.getCdUsuario(), usuario.getNome());
-
-            // Cria a resposta
             LoginResponse response = new LoginResponse(
                     token,
                     usuario.getCdUsuario(),
                     usuario.getLogin(),
                     usuario.getNome(),
                     usuario.getEmail(),
-                    86400000L, // 24 horas em milissegundos
+                    86400000L,
                     usuario.getCdTpAcesso()
             );
-
             return ResponseEntity.ok(response);
-
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(e.getMessage());
         }
