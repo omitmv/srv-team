@@ -32,7 +32,7 @@ import com.example.srvteam.util.UsuarioMapper;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/v1/usuarios")
+@RequestMapping("/v1/usuario")
 @CrossOrigin(origins = "*")
 public class UsuarioController {
 

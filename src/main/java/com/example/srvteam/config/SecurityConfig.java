@@ -24,8 +24,8 @@ public class SecurityConfig {
     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
     .authorizeHttpRequests(authz -> authz
       // Endpoints públicos (não precisam de autenticação)
-      .requestMatchers("/v1/usuarios/login").permitAll()
-      .requestMatchers("POST", "/v1/usuarios").permitAll() // Criação de usuário
+      .requestMatchers("/v1/usuario/login").permitAll()
+      .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
       .requestMatchers("/actuator/**").permitAll()
       .requestMatchers("POST", "/v1/automacao").permitAll() // Endpoint para automação
 
