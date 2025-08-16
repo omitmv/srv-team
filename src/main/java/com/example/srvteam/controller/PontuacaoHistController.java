@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.srvteam.dto.request.PontuacaoHistPorPosicaoRequest;
 import com.example.srvteam.dto.request.PontuacaoHistRequest;
 import com.example.srvteam.dto.response.PontuacaoHistResponse;
+import com.example.srvteam.dto.response.PontuacaoHistResumoResponse;
 import com.example.srvteam.service.PontuacaoHistService;
 
 import jakarta.validation.Valid;
@@ -79,5 +80,14 @@ public class PontuacaoHistController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/resumo")
+    public ResponseEntity<PontuacaoHistResumoResponse> getPontuacaoHistResumo(@RequestParam Integer cdCompetidor, @RequestParam Integer cdCompeticao) {
+        PontuacaoHistResumoResponse resumo = pontuacaoHistService.getPontuacaoHistResumo(cdCompetidor, cdCompeticao);
+        if (resumo == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(resumo);
     }
 }

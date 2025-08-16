@@ -1,4 +1,3 @@
-
 package com.example.srvteam.repository;
 
 import java.time.LocalDateTime;
@@ -14,4 +13,6 @@ public interface PontuacaoHistRepository extends JpaRepository<PontuacaoHist, In
 	List<PontuacaoHist> findByCdCompeticao(Integer cdCompeticao);
 	List<PontuacaoHist> findByCdCompetidorAndCdCompeticao(Integer cdCompetidor, Integer cdCompeticao);
 	List<PontuacaoHist> findByCdCompetidorAndDtCadastroBetween(Integer cdCompetidor, LocalDateTime inicio, LocalDateTime fim);
+	@org.springframework.data.jpa.repository.Query(value = "select c.nome, d.nm_competicao as nmCompeticao, SUM(b.pontuacao) as totalPontuacao from tb_pontuacao_hist a inner join tb_pontuacao b ON( b.cd_pontuacao = a.cd_pontuacao ) inner join tb_usuario c ON( c.cd_usuario = a.cd_competidor ) inner join tb_competicao d ON( d.cd_competicao = a.cd_competicao ) where a.cd_competidor = :cdCompetidor and a.cd_competicao = :cdCompeticao GROUP BY c.nome, d.nm_competicao", nativeQuery = true)
+	Object[] findPontuacaoHistResumo(@org.springframework.data.repository.query.Param("cdCompetidor") Integer cdCompetidor, @org.springframework.data.repository.query.Param("cdCompeticao") Integer cdCompeticao);
 }

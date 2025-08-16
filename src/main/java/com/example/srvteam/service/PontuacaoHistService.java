@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.example.srvteam.dto.request.PontuacaoHistPorPosicaoRequest;
 import com.example.srvteam.dto.request.PontuacaoHistRequest;
 import com.example.srvteam.dto.response.PontuacaoHistResponse;
+import com.example.srvteam.dto.response.PontuacaoHistResumoResponse;
 import com.example.srvteam.mapper.PontuacaoHistMapper;
 import com.example.srvteam.model.Pontuacao;
 import com.example.srvteam.model.PontuacaoHist;
@@ -100,4 +101,15 @@ public class PontuacaoHistService {
         PontuacaoHist saved = pontuacaoHistRepository.save(entity);
         return PontuacaoHistMapper.toResponse(saved);
   }
+
+    public PontuacaoHistResumoResponse getPontuacaoHistResumo(Integer cdCompetidor, Integer cdCompeticao) {
+        Object[] result = pontuacaoHistRepository.findPontuacaoHistResumo(cdCompetidor, cdCompeticao);
+        if (result == null || result.length < 3) {
+            return null;
+        }
+        String nome = (String) result[0];
+        String nmCompeticao = (String) result[1];
+        java.math.BigDecimal totalPontuacao = (java.math.BigDecimal) result[2];
+        return new PontuacaoHistResumoResponse(nome, nmCompeticao, totalPontuacao);
+    }
 }
