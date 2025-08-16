@@ -42,6 +42,7 @@ public class UsuarioController {
     @Autowired
     private JwtUtil jwtUtil;
 
+
     /**
      * POST /v1/usuarios - Inserir novo usuário
      */
@@ -52,6 +53,30 @@ public class UsuarioController {
             Usuario usuarioCriado = usuarioService.insUsuario(usuario);
             UsuarioResponse response = UsuarioMapper.toResponse(usuarioCriado);
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * POST /v1/usuario/insLista - Inserir lista de usuários
+     * Body: Array de UsuarioRequest
+     */
+    @PostMapping("/insLista")
+    public ResponseEntity<?> insListaUsuarios(@Valid @RequestBody List<UsuarioRequest> usuariosRequest) {
+        try {
+            List<UsuarioResponse> responses = usuariosRequest.stream()
+                .map(req -> {
+                    // Se cdTpAcesso não vier, define como ATLETA
+                    if (req.getCdTpAcesso() == null) {
+                        req.setCdTpAcesso(com.example.srvteam.common.EnumTpAcesso.ATLETA.getCodigo());
+                    }
+                    Usuario usuario = UsuarioMapper.toEntity(req);
+                    Usuario usuarioCriado = usuarioService.insUsuario(usuario);
+                    return UsuarioMapper.toResponse(usuarioCriado);
+                })
+                .collect(Collectors.toList());
+            return ResponseEntity.status(HttpStatus.CREATED).body(responses);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

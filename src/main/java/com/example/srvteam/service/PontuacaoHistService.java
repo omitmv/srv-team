@@ -8,16 +8,26 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.srvteam.dto.request.PontuacaoHistPorPosicaoRequest;
 import com.example.srvteam.dto.request.PontuacaoHistRequest;
 import com.example.srvteam.dto.response.PontuacaoHistResponse;
 import com.example.srvteam.mapper.PontuacaoHistMapper;
+import com.example.srvteam.model.Pontuacao;
 import com.example.srvteam.model.PontuacaoHist;
+import com.example.srvteam.repository.CompetidoresRepository;
 import com.example.srvteam.repository.PontuacaoHistRepository;
+import com.example.srvteam.repository.PontuacaoRepository;
 
 import jakarta.transaction.Transactional;
 
 @Service
 public class PontuacaoHistService {
+    @Autowired
+    private CompetidoresRepository competidoresRepository;
+
+    @Autowired
+    private PontuacaoRepository pontuacaoRepository;
+
     @Autowired
     private PontuacaoHistRepository pontuacaoHistRepository;
 
@@ -59,4 +69,35 @@ public class PontuacaoHistService {
         List<PontuacaoHist> list = pontuacaoHistRepository.findByCdCompeticao(cdCompeticao);
         return list.stream().map(PontuacaoHistMapper::toResponse).collect(Collectors.toList());
     }
+
+    /**
+     * Insere histórico de pontuação por posição, validando regras de negócio
+     */
+    @Transactional
+    public PontuacaoHistResponse insPontuacaoHistPorPosicao(PontuacaoHistPorPosicaoRequest req) {
+        // 1. Verificar se o competidor está na competição
+        boolean competidorNaCompeticao = competidoresRepository.findByCdCompeticao(req.getCdCompeticao())
+            .stream()
+            .anyMatch(c -> c.getCdCompetidor().equals(req.getCdCompetidor()));
+        if (!competidorNaCompeticao) {
+            throw new IllegalArgumentException("Competidor não está inscrito nesta competição.");
+        }
+
+        // 2. Buscar cdPontuacao pela competição e posição
+        Pontuacao pontuacao = pontuacaoRepository.findByCdCompeticao(req.getCdCompeticao())
+            .stream()
+            .filter(p -> p.getPosicao().equals(req.getPosicao()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("Não existe pontuação para esta posição na competição."));
+
+        // 3. Montar e salvar PontuacaoHist
+        PontuacaoHistRequest histRequest = new PontuacaoHistRequest();
+        histRequest.setCdCompetidor(req.getCdCompetidor());
+        histRequest.setCdCompeticao(req.getCdCompeticao());
+        histRequest.setCdPontuacao(pontuacao.getCdPontuacao());
+        // dtCadastro será preenchido automaticamente se necessário
+        PontuacaoHist entity = PontuacaoHistMapper.toEntity(histRequest);
+        PontuacaoHist saved = pontuacaoHistRepository.save(entity);
+        return PontuacaoHistMapper.toResponse(saved);
+  }
 }

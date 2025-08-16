@@ -65,4 +65,18 @@ public class PontuacaoHistController {
     public ResponseEntity<List<PontuacaoHistResponse>> listPontuacaoHistByCdCompeticao(@PathVariable Integer cdCompeticao) {
         return ResponseEntity.ok(pontuacaoHistService.listPontuacaoHistByCdCompeticao(cdCompeticao));
     }
+
+    /**
+     * POST /v1/pontuacao-hist/por-posicao - Insere histórico de pontuação por posição
+     * Body: { "cdCompetidor": 9, "cdCompeticao": 1, "posicao": 2 }
+     */
+    @PostMapping("/por-posicao")
+    public ResponseEntity<?> insPontuacaoHistPorPosicao(@RequestBody PontuacaoHistPorPosicaoRequest req) {
+        try {
+            PontuacaoHistResponse response = pontuacaoHistService.insPontuacaoHistPorPosicao(req);
+            return ResponseEntity.status(201).body(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

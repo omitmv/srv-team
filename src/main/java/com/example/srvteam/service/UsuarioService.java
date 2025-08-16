@@ -31,9 +31,9 @@ public class UsuarioService {
         }
 
         // Verificar se já existe usuário com esse email
-        if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-            throw new IllegalArgumentException("Já existe um usuário com esse email: " + usuario.getEmail());
-        }
+        //if (usuarioRepository.existsByEmail(usuario.getEmail())) {
+        //    throw new IllegalArgumentException("Já existe um usuário com esse email: " + usuario.getEmail());
+        //}
 
         // Criptografar a senha
         String senhaCriptografada = PasswordUtil.criptografarSenha(usuario.getSenha());
