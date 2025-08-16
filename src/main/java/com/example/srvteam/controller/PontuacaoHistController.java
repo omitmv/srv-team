@@ -3,6 +3,8 @@ package com.example.srvteam.controller;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +31,8 @@ import jakarta.validation.Valid;
 @RequestMapping("/v1/pontuacao-hist")
 @PreAuthorize("isAuthenticated()")
 public class PontuacaoHistController {
+    private static final Logger logger = LoggerFactory.getLogger(PontuacaoHistController.class);
+
     @Autowired
     private PontuacaoHistService pontuacaoHistService;
 
@@ -84,6 +88,7 @@ public class PontuacaoHistController {
 
     @GetMapping("/resumo")
     public ResponseEntity<PontuacaoHistResumoResponse> getPontuacaoHistResumo(@RequestParam Integer cdCompetidor, @RequestParam Integer cdCompeticao) {
+        logger.info("Buscando resumo de pontuação para competidor {} na competição {}", cdCompetidor, cdCompeticao);
         PontuacaoHistResumoResponse resumo = pontuacaoHistService.getPontuacaoHistResumo(cdCompetidor, cdCompeticao);
         if (resumo == null) {
             return ResponseEntity.notFound().build();
