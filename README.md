@@ -1,10 +1,16 @@
-# SRV-Team - API de Gerenciamento de Times
+# SRV-Team - API de Gerenciamento de Usuários
 
-Este é um projeto Spring Boot que fornece uma API REST para gerenciamento de times de trabalho.
+Este é um projeto Spring Boot que fornece uma API REST para gerenciamento de usuários.
 
-## 🚀 Tecnologias Utilizadas
-
-- **Java 17**
+## 🚀 Tecnologias Utilizadas### Fazer login
+```bash
+curl -X POST http://localhost:8080/v1/usuarios/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "login": "joao.silva",
+    "senha": "123456"
+  }'
+```va 17**
 - **Spring Boot 3.2.2**
 - **Spring Data JPA**
 - **Spring Web**
@@ -22,20 +28,26 @@ src/
 │   ├── java/com/example/srvteam/
 │   │   ├── SrvTeamApplication.java      # Classe principal
 │   │   ├── controller/
-│   │   │   └── TeamController.java      # Controlador REST
+│   │   │   └── UsuarioController.java   # Controlador REST
 │   │   ├── model/
-│   │   │   └── Team.java               # Entidade Team
+│   │   │   └── Usuario.java            # Entidade Usuario
 │   │   ├── repository/
-│   │   │   └── TeamRepository.java     # Repositório JPA
-│   │   └── service/
-│   │       └── TeamService.java        # Lógica de negócio
+│   │   │   └── UsuarioRepository.java  # Repositório JPA
+│   │   ├── service/
+│   │   │   └── UsuarioService.java     # Lógica de negócio
+│   │   └── util/
+│   │       └── PasswordUtil.java       # Utilitário de criptografia
 │   └── resources/
 │       └── application.properties       # Configurações
 └── test/
     └── java/com/example/srvteam/
         ├── SrvTeamApplicationTests.java
-        └── controller/
-            └── TeamControllerTest.java
+        ├── controller/
+        │   └── UsuarioControllerTest.java
+        ├── service/
+        │   └── UsuarioServiceTest.java
+        └── util/
+            └── PasswordUtilTest.java
 ```
 
 ## 🛠️ Como Executar
@@ -83,53 +95,71 @@ A aplicação estará disponível em: `http://localhost:8080`
 
 ## 🔗 Endpoints da API
 
-### Teams
+### Usuários
 
 | Método | Endpoint | Descrição |
 |--------|----------|-----------|
-| GET | `/api/teams` | Lista todos os times |
-| GET | `/api/teams/{id}` | Busca time por ID |
-| GET | `/api/teams/name/{name}` | Busca time por nome |
-| GET | `/api/teams/search?name={name}` | Busca times por nome (parcial) |
-| GET | `/api/teams/search?lead={lead}` | Busca times por líder |
-| GET | `/api/teams/search?description={keyword}` | Busca times por palavra-chave na descrição |
-| POST | `/api/teams` | Cria novo time |
-| PUT | `/api/teams/{id}` | Atualiza time existente |
-| DELETE | `/api/teams/{id}` | Remove time |
+| GET | `/v1/usuarios` | Lista todos os usuários |
+| GET | `/v1/usuarios/{cdUsuario}` | Busca usuário por ID |
+| GET | `/v1/usuarios/login/{login}` | Busca usuário por login |
+| GET | `/v1/usuarios/email/{email}` | Busca usuário por email |
+| GET | `/v1/usuarios/ativos` | Lista usuários ativos |
+| POST | `/v1/usuarios` | Cria novo usuário |
+| PUT | `/v1/usuarios/{cdUsuario}` | Atualiza usuário existente |
+| DELETE | `/v1/usuarios/{cdUsuario}` | Remove usuário |
+| POST | `/v1/usuarios/login` | Verifica credenciais de login |
+| PATCH | `/v1/usuarios/{cdUsuario}/ativar` | Ativa usuário |
+| PATCH | `/v1/usuarios/{cdUsuario}/inativar` | Inativa usuário |
 
-### Exemplo de JSON para Team
+### Exemplo de JSON para Usuario
 
 ```json
 {
-  "name": "Desenvolvimento",
-  "description": "Time responsável pelo desenvolvimento de software",
-  "email": "dev@example.com",
-  "teamLead": "João Silva"
+  "login": "joao.silva",
+  "senha": "123456",
+  "nome": "João Silva",
+  "email": "joao.silva@example.com",
+  "flAtivo": true,
+  "dtExpiracao": "2024-12-31T23:59:59"
+}
+```
+
+### Exemplo de JSON para Login
+
+```json
+{
+  "login": "joao.silva",
+  "senha": "123456"
 }
 ```
 
 ## 🧪 Testando a API
 
-### Criar um time
+### Criar um usuário
 ```bash
-curl -X POST http://localhost:8080/api/teams \
+curl -X POST http://localhost:8080/v1/usuarios \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Desenvolvimento",
-    "description": "Time de desenvolvimento de software",
-    "email": "dev@example.com",
-    "teamLead": "João Silva"
+    "login": "joao.silva",
+    "senha": "123456",
+    "nome": "João Silva",
+    "email": "joao.silva@example.com"
   }'
 ```
 
-### Listar todos os times
+### Fazer login
 ```bash
-curl -X GET http://localhost:8080/api/teams
+curl -X POST http://localhost:8080/v1/usuarios/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "login": "joao.silva",
+    "senha": "123456"
+  }'
 ```
 
-### Buscar time por ID
+### Listar usuários ativos
 ```bash
-curl -X GET http://localhost:8080/api/teams/1
+curl -X GET http://localhost:8080/v1/usuarios/ativos
 ```
 
 ## 🔧 Configurações
@@ -143,12 +173,15 @@ As principais configurações estão no arquivo `src/main/resources/application.
 
 ## 📝 Validações
 
-A entidade Team possui as seguintes validações:
+A entidade Usuario possui as seguintes validações:
 
+- **Login**: Obrigatório, entre 3 e 50 caracteres, deve ser único
+- **Senha**: Obrigatória, criptografada com Base64 + MD5
 - **Nome**: Obrigatório, entre 2 e 100 caracteres
-- **Descrição**: Máximo 500 caracteres
-- **Email**: Formato de email válido
-- **Team Lead**: Opcional
+- **Email**: Formato de email válido, deve ser único
+- **Data de Cadastro**: Preenchida automaticamente
+- **Flag Ativo**: Controla se o usuário está ativo
+- **Data de Expiração**: Opcional, define quando o usuário expira
 
 ## 🚀 Próximos Passos
 
@@ -159,6 +192,9 @@ A entidade Team possui as seguintes validações:
 - [ ] Implementar logs estruturados
 - [ ] Adicionar métricas com Micrometer
 - [ ] Implementar testes de integração
+- [ ] Melhorar criptografia de senhas (BCrypt)
+- [ ] Implementar recuperação de senha
+- [ ] Adicionar controle de sessão
 
 ## 📄 Licença
 
