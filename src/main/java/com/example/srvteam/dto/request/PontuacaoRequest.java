@@ -1,4 +1,7 @@
+
 package com.example.srvteam.dto.request;
+
+import java.math.BigDecimal;
 
 import jakarta.validation.constraints.NotNull;
 
@@ -7,13 +10,13 @@ public class PontuacaoRequest {
     private Integer cdCompeticao;
     @NotNull
     private Integer posicao;
-    @NotNull
-    private Integer pontuacao;
+        @NotNull
+        private BigDecimal pontuacao;
 
     public Integer getCdCompeticao() { return cdCompeticao; }
     public void setCdCompeticao(Integer cdCompeticao) { this.cdCompeticao = cdCompeticao; }
     public Integer getPosicao() { return posicao; }
     public void setPosicao(Integer posicao) { this.posicao = posicao; }
-    public Integer getPontuacao() { return pontuacao; }
-    public void setPontuacao(Integer pontuacao) { this.pontuacao = pontuacao; }
+        public BigDecimal getPontuacao() { return pontuacao; }
+        public void setPontuacao(BigDecimal pontuacao) { this.pontuacao = pontuacao; }
 }

@@ -45,7 +45,7 @@ public class CompeticaoService {
     }
 
     public List<CompeticaoResponse> listCompeticaoByNmCompeticao(String nmCompeticao) {
-        List<Competicao> list = competicaoRepository.findByNmCompeticaoContainingIgnoreCase(nmCompeticao);
+        List<Competicao> list = competicaoRepository.buscarPorNomeLike(nmCompeticao);
         return list.stream().map(CompeticaoMapper::toResponse).collect(Collectors.toList());
     }
 }

@@ -1,5 +1,7 @@
 package com.example.srvteam.model;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -25,8 +27,8 @@ public class Pontuacao {
     private Integer posicao;
 
     @NotNull
-    @Column(name = "pontuacao", nullable = false)
-    private Integer pontuacao = 0;
+    @Column(name = "pontuacao", nullable = false, precision = 10, scale = 3)
+    private BigDecimal pontuacao = BigDecimal.ZERO;
 
     // Getters e Setters
     public Integer getCdPontuacao() { return cdPontuacao; }
@@ -38,6 +40,6 @@ public class Pontuacao {
     public Integer getPosicao() { return posicao; }
     public void setPosicao(Integer posicao) { this.posicao = posicao; }
 
-    public Integer getPontuacao() { return pontuacao; }
-    public void setPontuacao(Integer pontuacao) { this.pontuacao = pontuacao; }
+    public BigDecimal getPontuacao() { return pontuacao; }
+    public void setPontuacao(BigDecimal pontuacao) { this.pontuacao = pontuacao; }
 }
