@@ -1,10 +1,8 @@
 package com.example.srvteam.filter;
 
-import com.example.srvteam.util.JwtUtil;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.ArrayList;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,8 +12,12 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.ArrayList;
+import com.example.srvteam.util.JwtUtil;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -77,8 +79,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     String path = request.getRequestURI();
 
     // Endpoints que não precisam de autenticação
-    return path.equals("/v1/usuarios/login") ||
-        (path.equals("/v1/usuarios") && "POST".equals(request.getMethod())) ||
+    return path.equals("/v1/usuario/login") ||
+        (path.equals("/v1/usuario") && "POST".equals(request.getMethod())) ||
         path.startsWith("/h2-console") ||
         path.startsWith("/actuator") ||
         path.equals("/favicon.ico");
