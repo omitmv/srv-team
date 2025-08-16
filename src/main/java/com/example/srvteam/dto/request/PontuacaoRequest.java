@@ -1,0 +1,19 @@
+package com.example.srvteam.dto.request;
+
+import jakarta.validation.constraints.NotNull;
+
+public class PontuacaoRequest {
+    @NotNull
+    private Integer cdCompeticao;
+    @NotNull
+    private Integer posicao;
+    @NotNull
+    private Integer pontuacao;
+
+    public Integer getCdCompeticao() { return cdCompeticao; }
+    public void setCdCompeticao(Integer cdCompeticao) { this.cdCompeticao = cdCompeticao; }
+    public Integer getPosicao() { return posicao; }
+    public void setPosicao(Integer posicao) { this.posicao = posicao; }
+    public Integer getPontuacao() { return pontuacao; }
+    public void setPontuacao(Integer pontuacao) { this.pontuacao = pontuacao; }
+}
