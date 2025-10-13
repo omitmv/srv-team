@@ -28,6 +28,7 @@ public class SecurityConfig {
       .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
       .requestMatchers("/actuator/**").permitAll()
       .requestMatchers("POST", "/v1/automacao").permitAll() // Endpoint para automação
+      .requestMatchers("/v1/pontuacao-hist/resumoCompeticao/**").permitAll() // Console H2
 
       // Todos os outros endpoints precisam de autenticação
       .anyRequest().authenticated())
