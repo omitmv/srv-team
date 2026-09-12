@@ -27,7 +27,7 @@ Considerar somente `Resultado` que:
 - não está `CANCELADO`;
 - pertence a campeonato associado e esportivamente válido para a temporada.
 
-O impacto do resultado depende de `situacaoResultado`.
+Cada resultado válido é interpretado individualmente e gera uma contribuição independente para o total do atleta.
 
 ### CLASSIFICADO
 
@@ -49,7 +49,7 @@ Usar a regra `DESCLASSIFICACAO` da temporada.
 
 Se não houver regra configurada, impacto = `0`.
 
-Quando existir mais de um resultado `DESCLASSIFICADO` do atleta no mesmo campeonato, aplicar o `modoAplicacao` configurado em `TemporadaPenalidade.DESCLASSIFICACAO`.
+Cada resultado `DESCLASSIFICADO` aprovado contribui individualmente para o total.
 
 ### AUSENTE
 
@@ -57,95 +57,76 @@ Usar a regra `AUSENCIA` da temporada.
 
 Se não houver regra configurada, impacto = `0`.
 
-Quando existir mais de um resultado `AUSENTE` do atleta no mesmo campeonato, aplicar o `modoAplicacao` configurado em `TemporadaPenalidade.AUSENCIA`.
+Cada resultado `AUSENTE` aprovado contribui individualmente para o total.
 
 `DESCLASSIFICADO` e `AUSENTE` nunca devem ser convertidos artificialmente em colocação zero ou outra posição fictícia.
 
 Ausência de `Resultado` para uma posição não consolidada pela temporada também não deve ser interpretada como `AUSENTE`.
 
-## Agregação das penalidades
+## Soma dos impactos
 
-A multiplicidade da penalidade não é fixa no ranking. Ela é definida pela configuração da temporada.
+Não existe agregação de penalidade por campeonato, categoria ou tipo de situação no MVP.
 
-Modos mínimos:
-
-### POR_RESULTADO
-
-Cada resultado aprovado correspondente contribui individualmente.
+A regra é simples:
 
 ```text
-AUSENCIA = -2
-modoAplicacao = POR_RESULTADO
+para cada Resultado APROVADO válido:
+    calcular impacto daquele resultado
 
-2 resultados AUSENTE no mesmo campeonato
-=> -4
+TOTAL = soma de todos os impactos
 ```
 
-### UMA_POR_CAMPEONATO
-
-Para cada atleta, campeonato e tipo de penalidade, um ou mais resultados aprovados correspondentes produzem apenas uma ocorrência da penalidade.
-
-Conceitualmente, antes da soma, agrupar por:
+Exemplo:
 
 ```text
-(atleta, campeonato, tipoPenalidade)
+Atleta 1 / Campeonato 1
+
+Classic Physique / Classe 1        -> 1º lugar
+Classic Physique / Combate         -> AUSENTE
+Classic Physique / Overall         -> 1º lugar
+Culturismo Clássico / Classe 1     -> AUSENTE
+Culturismo Clássico / Master 1     -> DESCLASSIFICADO
 ```
 
-```text
-AUSENCIA = -2
-modoAplicacao = UMA_POR_CAMPEONATO
-
-2 resultados AUSENTE no mesmo campeonato
-=> -2
-```
-
-A agregação de `AUSENCIA` e `DESCLASSIFICACAO` é feita separadamente, pois cada uma possui configuração própria.
-
-## Total do atleta
-
-O ranking utiliza soma algébrica após a aplicação do modo de agregação de cada penalidade:
+A consolidação da temporada é:
 
 ```text
 TOTAL =
-  soma(pontuacoes CLASSIFICADO)
-  + soma(penalidades DESCLASSIFICADO após agregação)
-  + soma(penalidades AUSENTE após agregação)
+  pontos(1º lugar COMUM)
+  + penalidade(AUSENCIA)
+  + pontos(1º lugar OVERALL)
+  + penalidade(AUSENCIA)
+  + penalidade(DESCLASSIFICACAO)
 ```
 
-Consequentemente, o total pode ser positivo, zero ou negativo.
+Assim, dois resultados `AUSENTE` geram duas aplicações da penalidade de ausência, mesmo pertencendo ao mesmo campeonato.
 
 ## Ranking geral
 
-Soma todos os impactos válidos do atleta em todas as categorias/classes/campeonatos associados, respeitando o modo de aplicação configurado para cada penalidade.
+Soma todos os impactos válidos do atleta em todas as categorias, classes e campeonatos associados à temporada.
 
 Inclui:
 
-- classe `COMUM`;
-- classe `OVERALL`;
-- penalidades por desclassificação;
-- penalidades por ausência.
+- resultados de classe `COMUM`;
+- resultados de classe `OVERALL`;
+- cada penalidade por desclassificação;
+- cada penalidade por ausência.
 
-## Ranking por categoria
+## Categoria no ranking — fora do MVP
 
-Soma somente resultados aprovados da categoria alvo.
+A categoria permanece parte do `Resultado` e deve continuar disponível no modelo para consultas, filtros e evolução futura.
 
-Um atleta entra no ranking da categoria após possuir ao menos um resultado `APROVADO` nela, independentemente de esse resultado ser `CLASSIFICADO`, `DESCLASSIFICADO` ou `AUSENTE`.
+Entretanto, **ranking por categoria não faz parte do MVP**.
 
-Assim, um atleta pode entrar no ranking da categoria com zero ou pontuação negativa.
+Nenhuma regra específica de posição, elegibilidade, empate ou consolidação por categoria deve ser implementada agora.
 
-A aplicação de penalidades no ranking por categoria deve respeitar a mesma configuração da temporada, considerando apenas os resultados que pertencem à categoria consultada.
+Essa dimensão fica explicitamente mapeada para refinamento posterior.
 
 ## Pontuação zero e negativa
 
-### Ranking geral
-
-Atleta elegível aparece mesmo sem resultados aprovados, inicialmente com zero.
+Atleta elegível aparece no ranking geral mesmo sem resultados aprovados, inicialmente com zero.
 
 Após aplicação dos resultados, pode permanecer em zero ou ficar negativo.
-
-### Ranking por categoria
-
-Se houver resultado aprovado na categoria, o atleta aparece mesmo que o total seja zero ou negativo.
 
 ## Cálculo da posição
 
@@ -155,13 +136,12 @@ Sequência:
 
 ```text
 1. obter atletas elegíveis
-2. obter resultados válidos
-3. calcular pontuações classificatórias
-4. agregar penalidades conforme modoAplicacao
-5. somar total de cada atleta
-6. ordenar total decrescente
-7. atribuir posição esportiva
-8. aplicar filtros de visibilidade
+2. obter todos os resultados aprovados válidos
+3. calcular individualmente o impacto de cada resultado
+4. somar os impactos por atleta
+5. ordenar total decrescente
+6. atribuir posição esportiva
+7. aplicar filtros de visibilidade
 ```
 
 Valores negativos seguem a ordenação numérica normal:
@@ -207,7 +187,6 @@ Incluem:
 - alteração de `TemporadaPontuacao`;
 - alteração do valor de penalidade por desclassificação;
 - alteração do valor de penalidade por ausência;
-- alteração de `modoAplicacao` de qualquer penalidade;
 - associação/remoção de campeonato;
 - cancelamento/reativação de campeonato;
 - confirmação/cancelamento de inscrição;
@@ -240,34 +219,34 @@ Não criar snapshot imutável no MVP.
 
 Relatórios de temporada usam a mesma projeção.
 
-Devem conseguir distinguir:
+Devem conseguir distinguir cada contribuição individual:
 
 - pontos de colocação;
 - penalidade por desclassificação;
 - penalidade por ausência;
-- modo de aplicação utilizado;
+- categoria e classe de origem do resultado;
 - total final.
 
 Relatório de campeonato continua exibindo o desfecho esportivo original do campeonato; a penalidade é interpretação específica de cada temporada.
+
+Relatórios/rankings específicos por categoria ficam fora do MVP e serão refinados posteriormente.
 
 ## Invariantes consolidadas
 
 - ranking pertence à temporada;
 - ranking é derivado dinamicamente;
 - elegibilidade é calculada antes da pontuação;
-- resultado aprovado pode produzir ponto positivo, zero ou penalidade negativa;
+- cada `Resultado APROVADO` válido gera uma contribuição independente para o total;
 - `CLASSIFICADO` usa tabela por colocação/tipo de classe;
 - posição não consolidada pela temporada pode simplesmente não possuir resultado lançado;
 - ausência de resultado não equivale a `AUSENTE`;
-- `DESCLASSIFICADO` usa penalidade própria da temporada;
-- `AUSENTE` usa penalidade própria e independente;
-- cada penalidade possui `valor` e `modoAplicacao` configuráveis;
-- `POR_RESULTADO` aplica penalidade para cada resultado aprovado correspondente;
-- `UMA_POR_CAMPEONATO` aplica no máximo uma penalidade por atleta/campeonato/tipo;
-- desclassificação e ausência podem usar modos diferentes;
+- cada `DESCLASSIFICADO` usa a penalidade própria da temporada;
+- cada `AUSENTE` usa a penalidade própria e independente;
+- múltiplos resultados de ausência/desclassificação acumulam individualmente, mesmo no mesmo campeonato;
+- não existe agregação ou `modoAplicacao` de penalidades no MVP;
 - ausência de regra de penalidade significa impacto zero;
 - total do ranking pode ser negativo;
-- ranking por categoria aceita atleta com total zero ou negativo após primeiro resultado aprovado;
+- categoria permanece mapeada no resultado, mas ranking por categoria está fora do MVP;
 - visibilidade não altera posição esportiva;
 - empate existe no ranking da temporada, não na colocação do campeonato;
 - empate do ranking usa padrão `1, 1, 3`;
