@@ -68,13 +68,45 @@ Tipos de classe:
 - `COMUM`
 - `OVERALL`
 
-Para `Resultado.situacaoResultado = CLASSIFICADO`, a chave lógica continua:
+Para `Resultado.situacaoResultado = CLASSIFICADO`, a chave lógica é:
 
 ```text
 (cdTemporada, posicao, tipoClasse)
 ```
 
 A categoria não participa da chave.
+
+### Limite de colocações pontuadas
+
+A temporada não precisa atribuir pontos a todas as colocações possíveis de um campeonato.
+
+A própria existência de registros em `TemporadaPontuacao` define até quais posições aquela temporada consolida pontuação para cada `tipoClasse`.
+
+Exemplo:
+
+```text
+COMUM
+1º = 10
+2º = 8
+3º = 6
+4º = 4
+5º = 2
+
+6º em diante -> sem regra de pontuação
+```
+
+Não existe obrigação de lançar no sistema todas as posições esportivas do campeonato quando a temporada não as utiliza para sua consolidação.
+
+Portanto:
+
+- o campeonato pode possuir atletas classificados além da última posição pontuada pela temporada;
+- essas posições superiores podem não ser informadas no sistema;
+- posição não informada não deve ser criada artificialmente com pontuação zero;
+- posição não informada não equivale a `AUSENTE`;
+- ausência de lançamento não gera penalidade;
+- caso uma colocação seja informada e não exista regra correspondente em `TemporadaPontuacao`, seu impacto é zero.
+
+A regra de limite pertence à temporada e não altera a realidade esportiva do campeonato.
 
 ## Penalidades por situação esportiva
 
@@ -191,6 +223,9 @@ Alterações nas tabelas de pontuação/penalidade exigem recálculo das projeç
 - temporadas do mesmo criador podem sobrepor períodos;
 - campeonato não pertence exclusivamente à temporada;
 - tabela de colocação pertence à temporada;
+- temporada pode limitar as colocações que pontua sem exigir lançamento das posições superiores;
+- posição esportiva não informada não equivale a ausência;
+- ausência de lançamento não produz penalidade;
 - penalidades pertencem à temporada;
 - desclassificação e ausência possuem regras independentes;
 - ausência de penalidade configurada equivale a zero;
