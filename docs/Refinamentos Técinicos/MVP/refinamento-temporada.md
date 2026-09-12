@@ -21,7 +21,7 @@ Campos conceituais:
 - `cdResponsavelCancelamento`
 - auditoria
 
-`cdCriador` representa o titular/proprietário atual da temporada e pode ser alterado apenas pelo fluxo explícito de transferência de titularidade.
+`cdCriador` identifica de forma permanente o profissional que criou a temporada. No MVP não existe transferência de titularidade da temporada.
 
 ## Estado
 
@@ -38,7 +38,7 @@ Criador e administradores com `ADMINISTRACAO` podem cancelar enquanto a temporad
 
 ## Acesso de profissionais à temporada
 
-O criador/titular da temporada possui autoridade administrativa por definição e não depende de vínculo em `TemporadaProfissional` para exercer seus poderes.
+O criador da temporada possui autoridade administrativa por definição e não depende de vínculo em `TemporadaProfissional` para exercer seus poderes.
 
 Os demais profissionais acessam a temporada por vínculo explícito.
 
@@ -73,7 +73,7 @@ Profissional com `ADMINISTRACAO` pode, respeitando as demais regras do ciclo de 
 - definir ou alterar permissões `ADMINISTRACAO` e `CONSULTA`;
 - executar operações administrativas autorizadas sobre inscrições, resultados e demais fluxos relacionados à temporada.
 
-Administrador convidado possui, no MVP, os mesmos poderes administrativos ordinários do criador, exceto operações explicitamente reservadas ao titular.
+Administrador convidado possui, no MVP, os mesmos poderes administrativos ordinários do criador, exceto operações que dependam explicitamente da condição de criador segundo outra regra de negócio.
 
 ### CONSULTA
 
@@ -93,60 +93,13 @@ Qualquer profissional com `ADMINISTRACAO` pode incluir, remover, promover ou reb
 
 Regras:
 
-- o criador/titular não pode ser removido de `Temporada` por gerenciamento ordinário de acessos;
-- o criador/titular não pode ser rebaixado para `CONSULTA`;
+- o criador não pode ser removido da temporada por gerenciamento de acessos;
+- o criador não pode ser rebaixado para `CONSULTA`;
 - a autoridade do criador decorre de `cdCriador`, e não de `TemporadaProfissional`;
+- `cdCriador` é imutável no MVP;
+- não existe transferência de titularidade;
 - remoções de acesso devem ser lógicas/auditáveis;
 - remover acesso de um profissional não apaga nem altera dados históricos anteriormente produzidos por ele.
-
-## Transferência de titularidade
-
-A temporada possui exatamente um titular por vez, representado por `cdCriador`.
-
-Somente o titular atual pode transferir a titularidade da temporada.
-
-O destinatário da transferência:
-
-- deve ser profissional ativo;
-- pode já possuir vínculo com a temporada ou não;
-- não precisa possuir vínculo prévio com atletas da temporada para receber a titularidade.
-
-A transferência deve ser atômica.
-
-Fluxo conceitual:
-
-```text
-Titular atual
-   |
-   | transfere titularidade
-   v
-Novo profissional ativo
-```
-
-Efeitos obrigatórios:
-
-1. `cdCriador` passa a referenciar o novo titular;
-2. se o novo titular já possuir registro em `TemporadaProfissional`, esse vínculo é encerrado/removido logicamente, pois sua autoridade passa a decorrer da titularidade;
-3. o antigo titular deixa de ser titular;
-4. o antigo titular não permanece automaticamente vinculado à temporada;
-5. se o antigo titular precisar continuar com acesso, deverá ser incluído novamente em `TemporadaProfissional` por fluxo normal após a transferência;
-6. nenhum campeonato, inscrição, resultado, regra de pontuação, penalidade ou histórico esportivo é alterado pela transferência;
-7. toda a operação deve ser auditada com titular anterior, novo titular, responsável, data/hora e contexto da alteração.
-
-Consequência importante:
-
-```text
-antes:
-cdCriador = Profissional A
-TemporadaProfissional pode conter Profissional B
-
-após transferência A -> B:
-cdCriador = Profissional B
-vínculo de B em TemporadaProfissional = encerrado/removido
-Profissional A = sem vínculo automático com a temporada
-```
-
-A transferência de titularidade não deve ser modelada como simples alteração de permissão `ADMINISTRACAO`; trata-se de mudança da autoridade principal da temporada.
 
 ## Campeonatos
 
@@ -340,8 +293,6 @@ Enquanto esportivamente utilizável, atleta integra a temporada quando:
 
 Elegibilidade é derivada.
 
-A transferência de titularidade pode alterar a elegibilidade derivada dos atletas, porque o critério de vínculo ativo deve ser reavaliado em relação ao novo titular. Essa consequência deverá seguir as regras definitivas de elegibilidade e vínculo profissional-atleta do MVP, sem alterar inscrições ou resultados históricos.
-
 ## Ranking
 
 Ranking é projeção dinâmica e não entidade autoritativa no MVP.
@@ -368,16 +319,12 @@ Qualquer regra específica de ranking por categoria deve ser refinada em etapa f
 
 ## Invariantes consolidadas
 
-- temporada possui exatamente um criador/titular por vez;
-- titularidade é distinta de vínculo em `TemporadaProfissional`;
+- temporada possui exatamente um criador permanente no MVP;
+- `cdCriador` é imutável;
+- não existe transferência de titularidade da temporada no MVP;
 - qualquer `ADMINISTRACAO` pode gerenciar acessos de outros profissionais;
 - `CONSULTA` não altera configuração nem composição da temporada;
-- titular não pode ser removido ou rebaixado por gerenciamento ordinário de acesso;
-- somente o titular atual pode transferir a titularidade;
-- titularidade pode ser transferida para qualquer profissional ativo, com ou sem vínculo prévio com a temporada;
-- se o novo titular possuir vínculo em `TemporadaProfissional`, esse vínculo é encerrado/removido ao assumir a titularidade;
-- o antigo titular perde o vínculo automático com a temporada após a transferência;
-- transferência de titularidade não altera dados esportivos históricos;
+- criador não pode ser removido ou rebaixado por gerenciamento de acesso;
 - temporadas do mesmo criador podem sobrepor períodos;
 - campeonato não pertence exclusivamente à temporada;
 - tabela de colocação pertence à temporada;
