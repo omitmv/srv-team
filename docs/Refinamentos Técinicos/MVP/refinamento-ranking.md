@@ -49,32 +49,74 @@ Usar a regra `DESCLASSIFICACAO` da temporada.
 
 Se não houver regra configurada, impacto = `0`.
 
+Quando existir mais de um resultado `DESCLASSIFICADO` do atleta no mesmo campeonato, aplicar o `modoAplicacao` configurado em `TemporadaPenalidade.DESCLASSIFICACAO`.
+
 ### AUSENTE
 
 Usar a regra `AUSENCIA` da temporada.
 
 Se não houver regra configurada, impacto = `0`.
 
+Quando existir mais de um resultado `AUSENTE` do atleta no mesmo campeonato, aplicar o `modoAplicacao` configurado em `TemporadaPenalidade.AUSENCIA`.
+
 `DESCLASSIFICADO` e `AUSENTE` nunca devem ser convertidos artificialmente em colocação zero ou outra posição fictícia.
 
 Ausência de `Resultado` para uma posição não consolidada pela temporada também não deve ser interpretada como `AUSENTE`.
 
+## Agregação das penalidades
+
+A multiplicidade da penalidade não é fixa no ranking. Ela é definida pela configuração da temporada.
+
+Modos mínimos:
+
+### POR_RESULTADO
+
+Cada resultado aprovado correspondente contribui individualmente.
+
+```text
+AUSENCIA = -2
+modoAplicacao = POR_RESULTADO
+
+2 resultados AUSENTE no mesmo campeonato
+=> -4
+```
+
+### UMA_POR_CAMPEONATO
+
+Para cada atleta, campeonato e tipo de penalidade, um ou mais resultados aprovados correspondentes produzem apenas uma ocorrência da penalidade.
+
+Conceitualmente, antes da soma, agrupar por:
+
+```text
+(atleta, campeonato, tipoPenalidade)
+```
+
+```text
+AUSENCIA = -2
+modoAplicacao = UMA_POR_CAMPEONATO
+
+2 resultados AUSENTE no mesmo campeonato
+=> -2
+```
+
+A agregação de `AUSENCIA` e `DESCLASSIFICACAO` é feita separadamente, pois cada uma possui configuração própria.
+
 ## Total do atleta
 
-O ranking utiliza soma algébrica:
+O ranking utiliza soma algébrica após a aplicação do modo de agregação de cada penalidade:
 
 ```text
 TOTAL =
   soma(pontuacoes CLASSIFICADO)
-  + soma(penalidades DESCLASSIFICADO)
-  + soma(penalidades AUSENTE)
+  + soma(penalidades DESCLASSIFICADO após agregação)
+  + soma(penalidades AUSENTE após agregação)
 ```
 
 Consequentemente, o total pode ser positivo, zero ou negativo.
 
 ## Ranking geral
 
-Soma todos os impactos válidos do atleta em todas as categorias/classes/campeonatos associados.
+Soma todos os impactos válidos do atleta em todas as categorias/classes/campeonatos associados, respeitando o modo de aplicação configurado para cada penalidade.
 
 Inclui:
 
@@ -90,6 +132,8 @@ Soma somente resultados aprovados da categoria alvo.
 Um atleta entra no ranking da categoria após possuir ao menos um resultado `APROVADO` nela, independentemente de esse resultado ser `CLASSIFICADO`, `DESCLASSIFICADO` ou `AUSENTE`.
 
 Assim, um atleta pode entrar no ranking da categoria com zero ou pontuação negativa.
+
+A aplicação de penalidades no ranking por categoria deve respeitar a mesma configuração da temporada, considerando apenas os resultados que pertencem à categoria consultada.
 
 ## Pontuação zero e negativa
 
@@ -111,11 +155,13 @@ Sequência:
 
 ```text
 1. obter atletas elegíveis
-2. calcular todos os impactos válidos
-3. somar total de cada atleta
-4. ordenar total decrescente
-5. atribuir posição esportiva
-6. aplicar filtros de visibilidade
+2. obter resultados válidos
+3. calcular pontuações classificatórias
+4. agregar penalidades conforme modoAplicacao
+5. somar total de cada atleta
+6. ordenar total decrescente
+7. atribuir posição esportiva
+8. aplicar filtros de visibilidade
 ```
 
 Valores negativos seguem a ordenação numérica normal:
@@ -159,8 +205,9 @@ Incluem:
 - aprovação/cancelamento/correção de resultado;
 - mudança de `situacaoResultado` em correção administrativa;
 - alteração de `TemporadaPontuacao`;
-- alteração de penalidade por desclassificação;
-- alteração de penalidade por ausência;
+- alteração do valor de penalidade por desclassificação;
+- alteração do valor de penalidade por ausência;
+- alteração de `modoAplicacao` de qualquer penalidade;
 - associação/remoção de campeonato;
 - cancelamento/reativação de campeonato;
 - confirmação/cancelamento de inscrição;
@@ -198,6 +245,7 @@ Devem conseguir distinguir:
 - pontos de colocação;
 - penalidade por desclassificação;
 - penalidade por ausência;
+- modo de aplicação utilizado;
 - total final.
 
 Relatório de campeonato continua exibindo o desfecho esportivo original do campeonato; a penalidade é interpretação específica de cada temporada.
@@ -213,6 +261,10 @@ Relatório de campeonato continua exibindo o desfecho esportivo original do camp
 - ausência de resultado não equivale a `AUSENTE`;
 - `DESCLASSIFICADO` usa penalidade própria da temporada;
 - `AUSENTE` usa penalidade própria e independente;
+- cada penalidade possui `valor` e `modoAplicacao` configuráveis;
+- `POR_RESULTADO` aplica penalidade para cada resultado aprovado correspondente;
+- `UMA_POR_CAMPEONATO` aplica no máximo uma penalidade por atleta/campeonato/tipo;
+- desclassificação e ausência podem usar modos diferentes;
 - ausência de regra de penalidade significa impacto zero;
 - total do ranking pode ser negativo;
 - ranking por categoria aceita atleta com total zero ou negativo após primeiro resultado aprovado;
