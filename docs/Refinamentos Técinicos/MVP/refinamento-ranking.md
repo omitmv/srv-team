@@ -1,6 +1,6 @@
 # Refinamento técnico — Ranking
 
-Status: regras funcionais consolidadas; critérios de desempate e numeração após empate permanecem pendentes de decisão do produto.
+Status: regras funcionais consolidadas para o MVP.
 
 ## Objetivo
 
@@ -74,21 +74,6 @@ Inclui:
 - classes `OVERALL`;
 - todas as categorias;
 - todos os campeonatos associados à temporada.
-
-Exemplo conceitual:
-
-```text
-Atleta A
-
-Campeonato 1
-  Classic / Sênior  -> 10
-  Classic / Overall -> 15
-
-Campeonato 2
-  Bodybuilding / Master -> 8
-
-Total geral = 33
-```
 
 O Overall participa do total geral como qualquer outro resultado, aplicando a tabela específica de `tipoClasse = OVERALL`.
 
@@ -215,26 +200,36 @@ A comparação para ordenação deve usar o valor numérico real do `BigDecimal`
 
 ## Empates
 
-A regra funcional já confirmada estabelece que totais iguais compartilham posição.
+Totais iguais permanecem empatados no MVP. Não existe critério esportivo adicional de desempate.
+
+A numeração adotada é o **ranking de competição**, no padrão:
+
+```text
+1, 1, 3, 4...
+```
 
 Exemplo:
 
 ```text
-Atleta A = 30
-Atleta B = 30
-Atleta C = 20
+Atleta A = 30 pontos -> posição 1
+Atleta B = 30 pontos -> posição 1
+Atleta C = 20 pontos -> posição 3
+Atleta D = 10 pontos -> posição 4
 ```
 
-A e B devem aparecer empatados na mesma colocação.
+Se três atletas estiverem empatados na primeira posição, o próximo será o quarto:
 
-Entretanto, ainda existem duas decisões de produto não fechadas:
+```text
+1, 1, 1, 4...
+```
 
-1. critérios de desempate adicionais, caso futuramente seja desejado eliminar ou ordenar empates esportivos;
-2. padrão de numeração após empate:
-   - competição/dense gap: `1, 1, 3`;
-   - ranking denso: `1, 1, 2`.
+Formalmente, a posição esportiva pode ser obtida como:
 
-Até essa decisão, a implementação não deve inventar critérios como:
+```text
+posicao = 1 + quantidade de atletas com pontuacao estritamente maior
+```
+
+Não aplicar no MVP critérios adicionais como:
 
 - maior número de vitórias;
 - maior quantidade de Overall;
@@ -243,11 +238,11 @@ Até essa decisão, a implementação não deve inventar critérios como:
 - data de cadastro;
 - ordem alfabética.
 
-Ordem alfabética pode eventualmente ser usada apenas como ordenação visual estável entre atletas empatados, sem alterar a posição esportiva, se necessário para a interface. Isso não constitui desempate esportivo.
+Ordem alfabética pode ser usada apenas como ordenação visual estável entre atletas empatados, sem alterar a posição esportiva. Isso não constitui desempate.
 
-## Ordenação recomendada da consulta
+## Ordenação da consulta
 
-Enquanto não houver critério esportivo de desempate, a projeção pode ordenar por:
+A projeção deve ordenar por:
 
 1. pontuação total decrescente;
 2. posição esportiva;
@@ -288,23 +283,23 @@ Quando um relatório de temporada detalhar por campeonato, pode demonstrar a pon
 - Filtros de visibilidade são aplicados depois do cálculo das posições.
 - Filtros de visibilidade não renumeram posições.
 - Totais iguais compartilham posição.
-- Critério de desempate esportivo permanece indefinido.
-- Numeração após empate (`1,1,3` versus `1,1,2`) permanece indefinida.
+- Não há critério esportivo adicional de desempate no MVP.
+- Numeração após empate segue ranking de competição: `1, 1, 3`.
+- Ordem alfabética pode ser usada apenas para estabilidade visual entre empatados, sem efeito esportivo.
 - Ranking usa `BigDecimal` para agregação e comparação.
 
-## Decisões ainda abertas
+## Decisões consolidadas de empate
 
 ### D1 — Numeração após empate
 
-Escolher entre:
+Confirmado: usar **ranking de competição**.
 
-- **ranking de competição:** `1, 1, 3, 4...`;
-- **ranking denso:** `1, 1, 2, 3...`.
-
-Recomendação técnica/produto: usar **ranking de competição (`1, 1, 3`)**, por representar melhor a ideia de colocação esportiva: se dois atletas ocupam o primeiro lugar, duas posições foram ocupadas e o próximo é terceiro.
+```text
+1, 1, 3, 4...
+```
 
 ### D2 — Critérios adicionais de desempate
 
-Recomendação para o MVP: **não criar desempate adicional**. Pontuações iguais permanecem empatadas.
+Confirmado: **não aplicar desempate esportivo adicional no MVP**.
 
-Adicionar desempate somente quando existir regra esportiva explícita da organização, evitando uma política arbitrária embutida no software.
+Atletas com a mesma pontuação permanecem na mesma posição. Um critério de desempate somente poderá ser introduzido futuramente mediante regra esportiva explícita da organização.
