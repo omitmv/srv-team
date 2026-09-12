@@ -72,7 +72,11 @@ Essas situações são independentes do `status` de workflow do resultado.
 ### CLASSIFICADO
 
 - exige `colocacao > 0`;
-- pontuação é obtida normalmente pela tabela de colocação da temporada considerando o tipo da classe.
+- qualquer número inteiro positivo é uma colocação válida;
+- não existe limite máximo funcional de colocação no `Resultado`;
+- a validade da colocação independe de existir pontuação configurada para ela na temporada;
+- pontuação é obtida pela tabela da temporada quando existir regra para `(colocacao, tipoClasse)`;
+- colocação válida sem regra de pontuação na temporada produz impacto `0` naquela temporada.
 
 ### DESCLASSIFICADO
 
@@ -169,7 +173,8 @@ Consequências:
 - ausência de lançamento de posição superior não equivale a `AUSENTE`;
 - ausência de lançamento não gera penalidade;
 - não preencher lacunas automaticamente;
-- se uma colocação superior for efetivamente lançada, continua sujeita à unicidade esportiva e pode valer zero caso a temporada não possua regra de pontuação para ela.
+- qualquer colocação inteira positiva pode ser lançada, mesmo acima da maior posição configurada na tabela da temporada;
+- uma colocação lançada sem regra de pontuação correspondente continua sendo um resultado classificatório válido e produz impacto `0` naquela temporada.
 
 ## Estados do resultado
 
@@ -248,7 +253,7 @@ Toda intervenção exige justificativa obrigatória, auditoria integral e não g
 
 Pode alterar categoria, classe, situação esportiva e colocação, respeitando as invariantes:
 
-- `CLASSIFICADO` exige colocação positiva;
+- `CLASSIFICADO` exige colocação inteira positiva, sem limite máximo funcional;
 - `DESCLASSIFICADO` exige colocação nula;
 - `AUSENTE` exige colocação nula;
 - colocação de `CLASSIFICADO` deve continuar única na combinação campeonato/categoria/classe.
@@ -357,7 +362,10 @@ AUSENTE
 - Uma inscrição pode possuir vários resultados.
 - Há no máximo um resultado ativo por `(Inscricao, Categoria, Classe)`.
 - Situações mínimas: `CLASSIFICADO`, `DESCLASSIFICADO`, `AUSENTE`.
-- `CLASSIFICADO` exige `colocacao > 0`.
+- `CLASSIFICADO` exige `colocacao` inteira e maior que zero.
+- Qualquer colocação inteira positiva é válida; não existe limite máximo funcional.
+- A existência de uma colocação não depende de haver pontuação configurada para ela na temporada.
+- Colocação sem regra correspondente em `TemporadaPontuacao` produz impacto zero naquela temporada.
 - `DESCLASSIFICADO` e `AUSENTE` exigem colocação nula.
 - Toda situação esportiva é lançada manualmente por profissional autorizado.
 - O sistema não infere ausência ou desclassificação automaticamente.
