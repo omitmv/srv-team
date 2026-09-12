@@ -1,6 +1,6 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização, equivalência, autorização e vínculo com temporada consolidado para o MVP.
+Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização, equivalência, autorização, vínculo com temporada e semântica das datas consolidado para o MVP.
 
 ## Objetivo
 
@@ -17,6 +17,11 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - Deve informar subdivisão administrativa de primeiro nível quando aplicável ao país.
 - País e subdivisão pertencem a catálogo interno de referência baseado em códigos padronizados, preferencialmente ISO 3166 / ISO 3166-2.
 - O cadastro de campeonato não depende de API pública em tempo real.
+- `dtInicio` e `dtFim` têm finalidade informativa sobre o período do campeonato.
+- Campeonato de um único dia pode possuir `dtInicio = dtFim`.
+- Campeonato de vários dias possui `dtFim > dtInicio`.
+- As datas do campeonato não controlam automaticamente status, elegibilidade, inscrições, resultados ou pontuação.
+- O transcorrer da data final não encerra nem inativa automaticamente o campeonato.
 - Campeonato pode integrar várias temporadas via relação N:N `TemporadaCampeonato`.
 - Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato daquela temporada.
 - Profissional com permissão apenas de `CONSULTA` não pode alterar `TemporadaCampeonato`.
@@ -105,6 +110,25 @@ Estados mínimos:
 
 - `ATIVO`
 - `CANCELADO`
+
+### Datas do campeonato
+
+`dtInicio` e `dtFim` representam somente o período informado do evento.
+
+Regras:
+
+- campeonato de um dia: `dtInicio = dtFim`;
+- campeonato de vários dias: `dtFim > dtInicio`;
+- `dtFim` nunca pode ser anterior a `dtInicio`;
+- as datas não determinam transição automática de estado;
+- campeonato cuja `dtFim` já passou não se torna automaticamente encerrado, inativo ou cancelado;
+- não existe estado `FINALIZADO` derivado automaticamente da data no MVP;
+- datas não cancelam inscrições nem resultados;
+- datas não habilitam ou desabilitam pontuação automaticamente;
+- a validade esportiva para uma temporada continua sendo determinada pelas regras da temporada, vínculo `TemporadaCampeonato`, estado do campeonato e demais critérios de elegibilidade;
+- alteração das datas segue as mesmas regras gerais de alteração cadastral do campeonato, independentemente de a data do evento já ter ocorrido.
+
+Em consequência, o estado `ATIVO` deve ser entendido como estado administrativo do cadastro, e não como indicação de que o evento está acontecendo na data atual.
 
 Regras de localização:
 
@@ -445,6 +469,10 @@ Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 
 - campeonato é compartilhado;
 - criador é auditoria, não proprietário exclusivo;
+- datas do campeonato são informativas e não dirigem automaticamente o ciclo de vida;
+- campeonato de um dia admite `dtInicio = dtFim`;
+- campeonato de vários dias exige `dtFim > dtInicio`;
+- terminar a data do campeonato não muda automaticamente seu estado;
 - autorização profissional sobre campeonato existente deriva de relação administrativa com ao menos uma temporada vinculada ao campeonato;
 - acesso de consulta à temporada não concede manutenção do campeonato;
 - administrar qualquer uma das temporadas vinculadas é suficiente para autorização contextual;
