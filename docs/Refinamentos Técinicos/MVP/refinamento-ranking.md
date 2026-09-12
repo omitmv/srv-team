@@ -41,6 +41,8 @@ usando `TemporadaPontuacao`.
 
 Se não houver regra para aquela colocação/tipo de classe, impacto = `0`.
 
+A temporada pode deliberadamente pontuar somente até determinada colocação. Resultados de posições superiores podem nem ser lançados no sistema, sem que isso gere ausência ou penalidade.
+
 ### DESCLASSIFICADO
 
 Usar a regra `DESCLASSIFICACAO` da temporada.
@@ -55,6 +57,8 @@ Se não houver regra configurada, impacto = `0`.
 
 `DESCLASSIFICADO` e `AUSENTE` nunca devem ser convertidos artificialmente em colocação zero ou outra posição fictícia.
 
+Ausência de `Resultado` para uma posição não consolidada pela temporada também não deve ser interpretada como `AUSENTE`.
+
 ## Total do atleta
 
 O ranking utiliza soma algébrica:
@@ -66,25 +70,7 @@ TOTAL =
   + soma(penalidades AUSENTE)
 ```
 
-Consequentemente, o total pode ser:
-
-- positivo;
-- zero;
-- negativo.
-
-Exemplo:
-
-```text
-1º lugar COMUM = +10
-DESCLASSIFICACAO = -5
-AUSENCIA = -2
-
-Atleta A:
-+10 -5 = 5
-
-Atleta B:
--5 -2 = -7
-```
+Consequentemente, o total pode ser positivo, zero ou negativo.
 
 ## Ranking geral
 
@@ -101,13 +87,9 @@ Inclui:
 
 Soma somente resultados aprovados da categoria alvo.
 
-Um atleta entra no ranking da categoria após possuir ao menos um resultado `APROVADO` nela, independentemente de esse resultado ser:
+Um atleta entra no ranking da categoria após possuir ao menos um resultado `APROVADO` nela, independentemente de esse resultado ser `CLASSIFICADO`, `DESCLASSIFICADO` ou `AUSENTE`.
 
-- `CLASSIFICADO`;
-- `DESCLASSIFICADO`;
-- `AUSENTE`.
-
-Assim, um atleta pode entrar no ranking da categoria já com zero ou pontuação negativa.
+Assim, um atleta pode entrar no ranking da categoria com zero ou pontuação negativa.
 
 ## Pontuação zero e negativa
 
@@ -142,11 +124,11 @@ Valores negativos seguem a ordenação numérica normal:
 5 > 0 > -2 > -10
 ```
 
-## Empates
+## Empates no ranking da temporada
 
-Totais iguais permanecem empatados.
+Empate é permitido **no ranking derivado da temporada**, porque atletas distintos podem terminar com o mesmo total de pontos.
 
-Usar ranking de competição:
+Totais iguais permanecem empatados e usam ranking de competição:
 
 ```text
 1, 1, 3, 4...
@@ -158,9 +140,11 @@ Formalmente:
 posicao = 1 + quantidade de atletas com total estritamente maior
 ```
 
-Isso vale também para empates em zero ou em valores negativos.
+Isso vale também para empates em zero ou valores negativos.
 
 Não aplicar critérios esportivos adicionais de desempate no MVP.
+
+Importante: essa regra de empate do ranking da temporada **não significa empate de colocação no resultado do campeonato**. A colocação esportiva informada para uma mesma combinação de campeonato/categoria/classe é única.
 
 ## Filtros de visibilidade
 
@@ -225,12 +209,15 @@ Relatório de campeonato continua exibindo o desfecho esportivo original do camp
 - elegibilidade é calculada antes da pontuação;
 - resultado aprovado pode produzir ponto positivo, zero ou penalidade negativa;
 - `CLASSIFICADO` usa tabela por colocação/tipo de classe;
+- posição não consolidada pela temporada pode simplesmente não possuir resultado lançado;
+- ausência de resultado não equivale a `AUSENTE`;
 - `DESCLASSIFICADO` usa penalidade própria da temporada;
 - `AUSENTE` usa penalidade própria e independente;
 - ausência de regra de penalidade significa impacto zero;
 - total do ranking pode ser negativo;
 - ranking por categoria aceita atleta com total zero ou negativo após primeiro resultado aprovado;
 - visibilidade não altera posição esportiva;
-- empate usa padrão `1, 1, 3`;
-- não existe desempate adicional;
+- empate existe no ranking da temporada, não na colocação do campeonato;
+- empate do ranking usa padrão `1, 1, 3`;
+- não existe desempate adicional no ranking;
 - todos os cálculos usam `BigDecimal`.
