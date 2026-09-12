@@ -20,9 +20,19 @@ A inscrição identifica de forma autoritativa:
 
 Não duplicar `cdAtleta` e `cdCompeticao` em `Resultado` como fontes autoritativas.
 
-## Multiplicidade
+## Multiplicidade e granularidade
 
 Uma inscrição pode possuir vários resultados.
+
+Todo `Resultado`, independentemente de sua situação esportiva, pertence obrigatoriamente a uma combinação específica de:
+
+```text
+Inscricao + Categoria + Classe
+```
+
+Portanto, `CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` possuem a mesma granularidade.
+
+Não existe no MVP `Resultado` global do campeonato sem categoria/classe e não existe ausência/desclassificação global armazenada diretamente na `Inscricao`.
 
 Dentro da mesma inscrição, deve existir no máximo um resultado ativo para cada combinação:
 
@@ -80,6 +90,7 @@ Essas situações são independentes do `status` de workflow do resultado.
 
 ### DESCLASSIFICADO
 
+- pertence obrigatoriamente a categoria e classe específicas;
 - não possui colocação classificatória;
 - `colocacao` deve ser `null`;
 - pode gerar penalidade específica na temporada;
@@ -87,10 +98,13 @@ Essas situações são independentes do `status` de workflow do resultado.
 
 ### AUSENTE
 
+- pertence obrigatoriamente a categoria e classe específicas nas quais o atleta deveria competir;
 - não possui colocação classificatória;
 - `colocacao` deve ser `null`;
 - pode gerar penalidade específica na temporada;
 - deve ser tratado separadamente de `DESCLASSIFICADO`.
+
+Se o atleta não compareceu ao campeonato, o sistema não cria automaticamente uma ausência global. O profissional informa manualmente `AUSENTE` na categoria/classe correspondente quando esse desfecho precisar ser registrado.
 
 ## Lançamento manual da situação esportiva
 
@@ -101,13 +115,13 @@ O sistema não deve inferir automaticamente `CLASSIFICADO`, `DESCLASSIFICADO` ou
 Fluxos funcionais equivalentes:
 
 ```text
-Profissional informa CLASSIFICADO + colocacao
+Profissional informa CLASSIFICADO + categoria + classe + colocacao
         -> PENDENTE_APROVACAO
 
-Profissional informa DESCLASSIFICADO
+Profissional informa DESCLASSIFICADO + categoria + classe
         -> PENDENTE_APROVACAO
 
-Profissional informa AUSENTE
+Profissional informa AUSENTE + categoria + classe
         -> PENDENTE_APROVACAO
 ```
 
@@ -116,6 +130,7 @@ Portanto:
 - colocação é lançada manualmente pelo profissional;
 - desclassificação é lançada manualmente pelo profissional;
 - ausência é lançada manualmente pelo profissional;
+- categoria e classe são obrigatórias para qualquer situação esportiva;
 - nenhuma dessas situações produz efeito esportivo antes da aprovação do atleta;
 - ausência de um lançamento não pode ser interpretada como `AUSENTE`;
 - ausência de colocação não pode ser interpretada como `DESCLASSIFICADO`;
@@ -211,7 +226,7 @@ Consequências:
 - enquanto `PENDENTE_APROVACAO`, nenhuma situação altera pontuação ou ranking;
 - reprovação cancela o lançamento independentemente da situação esportiva.
 
-O atleta aprova o resultado informado, incluindo sua `situacaoResultado`. A aprovação não representa concordância com a regra de pontuação da temporada.
+O atleta aprova o resultado informado, incluindo categoria, classe, `situacaoResultado` e, quando aplicável, `colocacao`. A aprovação não representa concordância com a regra de pontuação da temporada.
 
 ## Validade esportiva
 
@@ -253,6 +268,7 @@ Toda intervenção exige justificativa obrigatória, auditoria integral e não g
 
 Pode alterar categoria, classe, situação esportiva e colocação, respeitando as invariantes:
 
+- categoria e classe são sempre obrigatórias;
 - `CLASSIFICADO` exige colocação inteira positiva, sem limite máximo funcional;
 - `DESCLASSIFICADO` exige colocação nula;
 - `AUSENTE` exige colocação nula;
@@ -359,6 +375,9 @@ AUSENTE
 ## Decisões consolidadas
 
 - Resultado pertence a um ciclo específico de `Inscricao`.
+- Todo resultado pertence obrigatoriamente a uma categoria e classe específicas.
+- `CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` possuem a mesma granularidade `(Inscricao, Categoria, Classe)`.
+- Não existe resultado global do campeonato nem ausência/desclassificação global na inscrição no MVP.
 - Uma inscrição pode possuir vários resultados.
 - Há no máximo um resultado ativo por `(Inscricao, Categoria, Classe)`.
 - Situações mínimas: `CLASSIFICADO`, `DESCLASSIFICADO`, `AUSENTE`.
