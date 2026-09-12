@@ -1,10 +1,10 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização, equivalência e autorização consolidado para o MVP.
+Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização, equivalência, autorização e vínculo com temporada consolidado para o MVP.
 
 ## Objetivo
 
-Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, sem propriedade exclusiva de uma temporada, com organizador centralizado, localização padronizada e regras explícitas de criação, alteração, cancelamento, reativação, equivalência e autorização.
+Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, sem propriedade exclusiva de uma temporada, com organizador centralizado, localização padronizada e regras explícitas de criação, alteração, cancelamento, reativação, equivalência, autorização e associação com temporadas.
 
 ## Regras confirmadas
 
@@ -18,6 +18,10 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - País e subdivisão pertencem a catálogo interno de referência baseado em códigos padronizados, preferencialmente ISO 3166 / ISO 3166-2.
 - O cadastro de campeonato não depende de API pública em tempo real.
 - Campeonato pode integrar várias temporadas via relação N:N `TemporadaCampeonato`.
+- Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato daquela temporada.
+- Profissional com permissão apenas de `CONSULTA` não pode alterar `TemporadaCampeonato`.
+- O vínculo pode ser criado ou removido independentemente da existência de inscrições ou resultados.
+- Desvincular campeonato de uma temporada não cancela, não inativa e não altera o status de inscrições ou resultados referentes ao campeonato.
 - Categoria e classe são informadas no `Resultado`, não pré-configuradas no campeonato.
 - Para operar um campeonato já existente como profissional autorizado, o profissional deve possuir relação de administração com ao menos uma temporada à qual o campeonato esteja vinculado.
 - Relação exclusivamente de consulta com a temporada não concede autorização de manutenção do campeonato.
@@ -150,6 +154,73 @@ O proprietário permanece com autoridade administrativa global, independentement
 A regra acima governa a manutenção de campeonato já associado. A criação inicial continua permitida ao profissional conforme a autorização geral de criação do MVP, pois antes de existir o campeonato ainda não há `TemporadaCampeonato` que possa ser usada como origem de autorização.
 
 Após a criação, operações profissionais que dependam de autorização contextual devem ser avaliadas pelas associações do campeonato com temporadas.
+
+## Associação Campeonato ↔ Temporada
+
+A relação entre campeonato e temporada é representada por `TemporadaCampeonato`.
+
+### Autoridade
+
+Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode:
+
+- vincular um campeonato à temporada;
+- desvincular um campeonato da temporada.
+
+Profissional com permissão `CONSULTA` não pode executar nenhuma das duas operações.
+
+A autorização é avaliada pelo contexto da `Temporada`, e não pela autoria do campeonato.
+
+### Vinculação
+
+Para vincular:
+
+- temporada deve permitir manutenção segundo seu próprio ciclo de vida;
+- campeonato deve estar apto a ser associado segundo seu próprio estado;
+- profissional deve possuir `ADMINISTRACAO` sobre a temporada;
+- duplicidade da mesma associação ativa deve ser impedida.
+
+### Desvinculação
+
+A existência de inscrições ou resultados do campeonato não impede a desvinculação.
+
+Desvincular `Campeonato` de `Temporada` significa apenas encerrar/remover a relação estrutural `TemporadaCampeonato`.
+
+A operação **não** deve:
+
+- cancelar `Inscricao`;
+- cancelar `Resultado`;
+- inativar `Resultado`;
+- alterar `situacaoResultado`;
+- alterar `status` de `Resultado`;
+- apagar histórico esportivo do campeonato.
+
+Os lançamentos continuam existindo normalmente vinculados à `Inscricao` e ao `Campeonato`.
+
+### Efeito sobre pontuação/ranking da temporada
+
+A associação `TemporadaCampeonato` define se aquele campeonato participa da composição esportiva da temporada.
+
+Portanto, ao desvincular um campeonato:
+
+- os resultados permanecem íntegros e com seus estados originais;
+- deixam de ser considerados na projeção de pontuação/ranking daquela temporada enquanto não houver vínculo ativo;
+- rankings da temporada devem ser recalculados;
+- nenhuma mutação deve ser feita nos próprios resultados.
+
+Se o campeonato for novamente vinculado à mesma temporada, resultados já existentes e válidos voltam a ser considerados pela projeção da temporada, conforme as demais regras de elegibilidade e pontuação vigentes.
+
+### Auditoria
+
+Registrar para cada vínculo/desvínculo:
+
+- temporada;
+- campeonato;
+- responsável;
+- data/hora;
+- operação executada;
+- histórico suficiente para reconstrução da associação.
+
+Recomendação técnica: preferir vínculo lógico/auditável em vez de apagar definitivamente o histórico da relação.
 
 ## Criação
 
@@ -352,6 +423,7 @@ Registrar historicamente:
 - edições diretas de campeonato não utilizado;
 - responsável por cada edição direta;
 - temporadas que fundamentaram autorização administrativa quando relevante;
+- vínculos e desvínculos com temporadas;
 - solicitações de alteração;
 - dados atuais e propostos;
 - justificativas;
@@ -376,6 +448,11 @@ Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 - autorização profissional sobre campeonato existente deriva de relação administrativa com ao menos uma temporada vinculada ao campeonato;
 - acesso de consulta à temporada não concede manutenção do campeonato;
 - administrar qualquer uma das temporadas vinculadas é suficiente para autorização contextual;
+- somente administrador de temporada vincula ou desvincula campeonato daquela temporada;
+- vínculo/desvínculo independe da existência de inscrições ou resultados;
+- desvincular não cancela nem inativa inscrições ou resultados;
+- desvincular remove apenas a participação do campeonato na projeção daquela temporada;
+- revincular faz resultados válidos voltarem a participar da projeção da temporada;
 - qualquer profissional autorizado pode editar diretamente campeonato não utilizado;
 - campeonato utilizado exige solicitação de alteração ao proprietário;
 - a condição de utilizado é histórica;
