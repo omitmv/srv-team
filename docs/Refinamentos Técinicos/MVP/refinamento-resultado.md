@@ -119,9 +119,62 @@ A edição deve:
 
 A aprovação do atleta deve sempre estar associada à versão corrente do resultado. Se o resultado for alterado após a emissão de uma solicitação de aprovação, uma tentativa de aprovar a versão anterior deve ser recusada pelo backend.
 
-Após `APROVADO`, a permissão ordinária de edição por profissionais deixa de existir. Intervenções posteriores seguem o fluxo administrativo específico a ser refinado para o proprietário.
+Após `APROVADO`, a permissão ordinária de edição por profissionais deixa de existir.
 
 Se o vínculo do profissional com o atleta deixar de estar ativo antes da edição, ele não pode mais modificar o resultado, mesmo que tenha sido seu responsável pelo lançamento original.
+
+## Intervenção do proprietário sobre resultado aprovado
+
+O proprietário pode intervir diretamente em um resultado `APROVADO`.
+
+São permitidas duas operações administrativas:
+
+1. correção direta do resultado aprovado;
+2. cancelamento do resultado aprovado.
+
+Essas operações possuem efeito imediato e não exigem nova aprovação do atleta.
+
+### Correção direta
+
+Ao corrigir um resultado `APROVADO`, o proprietário pode alterar os dados esportivos do registro, incluindo categoria, classe e colocação, respeitando as invariantes estruturais do domínio.
+
+A correção administrativa deve:
+
+- manter o mesmo `cdResultado`;
+- incrementar a versão do resultado;
+- manter `status = APROVADO`;
+- registrar proprietário responsável pela alteração;
+- registrar data/hora;
+- preservar os valores anteriores em histórico/auditoria;
+- recalcular pontuação, rankings e relatórios afetados imediatamente.
+
+Não há retorno para `PENDENTE_APROVACAO` e não há nova solicitação de aprovação ao atleta.
+
+Se a correção alterar categoria ou classe, a combinação resultante deve continuar respeitando a invariante de no máximo um resultado ativo por `(cdInscricao, cdCategoria, cdClasse)`.
+
+### Cancelamento administrativo
+
+O proprietário também pode cancelar diretamente um resultado `APROVADO`.
+
+Nesse caso:
+
+```text
+APROVADO -> CANCELADO
+```
+
+O cancelamento deve:
+
+- registrar `cdResponsavelCancelamento`;
+- registrar `dtCancelamento`;
+- preservar o resultado integralmente no histórico;
+- permitir justificativa/motivo administrativo;
+- remover imediatamente o resultado de pontuação, rankings e relatórios esportivos;
+- recalcular todas as temporadas e projeções afetadas;
+- liberar a combinação `(cdInscricao, cdCategoria, cdClasse)` para um novo lançamento, caso necessário.
+
+O cancelamento administrativo não exclui fisicamente o resultado.
+
+Após cancelado, qualquer novo lançamento para a mesma combinação nasce novamente como `PENDENTE_APROVACAO` e segue o fluxo normal de aprovação do atleta, salvo nova intervenção direta do proprietário.
 
 ## Reprovação pelo atleta
 
@@ -209,7 +262,10 @@ O histórico deve permitir reconstruir:
 - quem aprovou ou reprovou;
 - quando decidiu;
 - motivo da reprovação;
-- eventual cancelamento administrativo posterior.
+- quais correções administrativas foram realizadas após aprovação;
+- valores anteriores e novos de cada correção administrativa;
+- eventual cancelamento administrativo posterior;
+- responsável e data de cada intervenção do proprietário.
 
 ## Relação com a pontuação
 
@@ -224,6 +280,8 @@ A pontuação é derivada dinamicamente a partir de:
 
 Portanto, o mesmo resultado aprovado pode gerar pontuação diferente em temporadas distintas.
 
+Qualquer correção ou cancelamento administrativo de um resultado aprovado deve provocar a atualização dos cálculos derivados afetados.
+
 ## Decisões consolidadas
 
 - Resultado pertence a um ciclo específico de `Inscricao`.
@@ -237,6 +295,12 @@ Portanto, o mesmo resultado aprovado pode gerar pontuação diferente em tempora
 - A aprovação do atleta deve corresponder à versão atual do resultado.
 - Uma edição invalida qualquer aprovação/solicitação referente a versão anterior.
 - Após `APROVADO`, profissionais não podem editar pelo fluxo ordinário.
+- Proprietário pode corrigir diretamente resultado `APROVADO`.
+- Correção administrativa mantém o resultado `APROVADO`, incrementa versão e tem efeito imediato.
+- Correção administrativa não exige nova aprovação do atleta.
+- Proprietário pode cancelar diretamente resultado `APROVADO`.
+- Cancelamento administrativo transforma o resultado em `CANCELADO` e tem efeito imediato.
+- Toda intervenção do proprietário deve ser auditada e preservar o estado anterior.
 - Reprovação pelo atleta transforma o lançamento em `CANCELADO`.
 - Resultado cancelado permanece no histórico.
 - Após reprovação, o profissional cria um novo resultado; não corrige o registro cancelado como se fosse o mesmo lançamento.
@@ -245,7 +309,6 @@ Portanto, o mesmo resultado aprovado pode gerar pontuação diferente em tempora
 
 ## Próximos pontos de refinamento
 
-1. Definir intervenção do proprietário sobre resultado `APROVADO`.
-2. Definir cancelamento administrativo de resultado aprovado.
-3. Fechar estratégia técnica de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
-4. Refinar migração/aposentadoria de `tbPontuacaoHist`.
+1. Fechar estratégia técnica de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
+2. Definir requisitos de justificativa/notificação nas intervenções administrativas do proprietário.
+3. Refinar migração/aposentadoria de `tbPontuacaoHist`.
