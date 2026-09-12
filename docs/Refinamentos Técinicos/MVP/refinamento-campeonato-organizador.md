@@ -1,16 +1,21 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento e reativação consolidado para o MVP.
+Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização e equivalência consolidado para o MVP.
 
 ## Objetivo
 
-Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, independente de propriedade exclusiva de uma temporada, e substituir organizador/federação como texto livre por referência a catálogo central de `Organizador` administrado pelo proprietário.
+Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, independente de propriedade exclusiva de uma temporada, substituir organizador/federação como texto livre por referência a catálogo central de `Organizador` administrado pelo proprietário e padronizar a localização do evento por catálogo interno de país e subdivisão administrativa.
 
 ## Regras confirmadas
 
 - `Organizador` pertence a catálogo central administrado exclusivamente pelo proprietário.
 - O profissional pode criar campeonato.
 - Todo campeonato deve possuir organizador selecionado do catálogo central.
+- Todo campeonato deve informar país.
+- Todo campeonato deve informar subdivisão administrativa de primeiro nível quando aplicável ao país (por exemplo, Estado/UF no Brasil).
+- País e subdivisão não são digitados livremente pelo profissional.
+- País e subdivisão pertencem a catálogo interno de referência baseado em códigos padronizados, preferencialmente ISO 3166 / ISO 3166-2.
+- O fluxo de cadastro de campeonato não deve depender de consulta a API pública em tempo real.
 - Campeonato criado por profissional integra o catálogo compartilhado.
 - Campeonato não pertence exclusivamente a uma temporada.
 - Associação campeonato-temporada é N:N via `TemporadaCampeonato`.
@@ -39,6 +44,55 @@ Somente o proprietário pode criar, editar, inativar ou reativar organizador.
 
 Organizador já utilizado não deve ser fisicamente excluído. Inativação preserva campeonatos históricos e impede seleção em novos campeonatos.
 
+## Catálogo geográfico
+
+### País
+
+Entidade conceitual:
+
+```text
+Pais
+ ├── cdPais
+ ├── codigoIso2
+ ├── codigoIso3
+ ├── dsNome
+ ├── flAtivo
+ └── auditoria técnica
+```
+
+### Subdivisão administrativa
+
+Entidade conceitual:
+
+```text
+Subdivisao
+ ├── cdSubdivisao
+ ├── cdPais
+ ├── codigoIso
+ ├── dsNome
+ ├── flAtivo
+ └── auditoria técnica
+```
+
+`Subdivisao` representa o primeiro nível administrativo relevante do país. Exemplos:
+
+- Brasil: Estado/UF;
+- Estados Unidos: State;
+- Canadá: Province/Territory;
+- outros países: região, província ou equivalente quando aplicável.
+
+Regras:
+
+- o catálogo é interno ao sistema;
+- os registros são pré-carregados e atualizados administrativamente/sistemicamente;
+- profissional não cadastra país ou subdivisão durante o cadastro do campeonato;
+- o proprietário não precisa cadastrar manualmente cada país ou subdivisão;
+- utilizar códigos padronizados como referência estável;
+- indisponibilidade de serviço externo não pode impedir o cadastro ou consulta de campeonatos;
+- país inativo não pode ser selecionado em novo campeonato, mas continua válido para histórico;
+- subdivisão inativa segue a mesma regra;
+- `cdSubdivisao` deve pertencer ao `cdPais` informado.
+
 ## Campeonato
 
 Entidade conceitual:
@@ -48,6 +102,8 @@ Campeonato
  ├── cdCampeonato/cdCompeticao
  ├── dsNome
  ├── cdOrganizador
+ ├── cdPais
+ ├── cdSubdivisao
  ├── dtInicio
  ├── dtFim
  ├── dsLocal
@@ -65,6 +121,14 @@ Estados de negócio mínimos:
 - `ATIVO`
 - `CANCELADO`
 
+Regras de localização:
+
+- `cdPais` é obrigatório;
+- `cdSubdivisao` é obrigatório quando o país possuir subdivisão administrativa aplicável ao catálogo;
+- `dsLocal` é opcional e livre para detalhes como ginásio, centro de eventos ou endereço;
+- `dsLocal` não participa da identidade semântica do campeonato;
+- alteração de `dsLocal` não caracteriza novo campeonato.
+
 Para reduzir impacto de migração, pode ser mantida a identidade física atual `cdCompeticao`/`tbCompeticao`, tratando semanticamente a entidade como Campeonato.
 
 O campo legado `federacao` não deve permanecer como fonte autoritativa. `Campeonato` referencia `Organizador` por identidade.
@@ -75,13 +139,59 @@ Profissional autorizado pode criar campeonato diretamente, sem aprovação prév
 
 Na criação:
 
-1. informa dados;
+1. informa nome, período e localização;
 2. seleciona organizador ativo;
-3. sistema valida campos e duplicidade;
-4. verifica também a existência de campeonato equivalente cancelado;
-5. se não houver conflito, cria campeonato no catálogo compartilhado.
+3. seleciona país ativo;
+4. seleciona subdivisão válida para o país quando aplicável;
+5. sistema valida campos e equivalência;
+6. verifica campeonatos ativos e cancelados equivalentes;
+7. se não houver conflito, cria campeonato no catálogo compartilhado.
 
 `cdCriador` é informação de auditoria, não propriedade exclusiva do registro.
+
+## Equivalência e duplicidade
+
+A identidade semântica aproximada do campeonato no MVP é:
+
+```text
+(nomeNormalizado, cdOrganizador, cdPais, cdSubdivisao, dtInicio)
+```
+
+Quando o país não possuir subdivisão aplicável, `cdSubdivisao` pode ser nulo e a comparação considera essa ausência de forma consistente.
+
+### Normalização do nome
+
+A comparação deve usar uma representação normalizada para reduzir duplicidades meramente textuais, considerando pelo menos:
+
+- trim;
+- comparação case-insensitive;
+- normalização de espaços repetidos;
+- normalização de acentuação/pontuação quando tecnicamente segura.
+
+Exemplos semanticamente equivalentes:
+
+```text
+Mr. Rio 2026
+MR RIO 2026
+Mr Rio 2026
+```
+
+### Campos que não participam da identidade
+
+Não usar como componente obrigatório da equivalência:
+
+- `dtFim`;
+- `dsLocal`.
+
+Esses dados podem mudar sem representar nascimento de outro campeonato.
+
+### Comportamento
+
+- equivalente `ATIVO` -> bloquear novo cadastro e direcionar para o campeonato existente;
+- equivalente `CANCELADO` -> bloquear novo cadastro e oferecer solicitação de reativação;
+- inexistente -> permitir criação ordinária.
+
+A regra de equivalência é invariante de domínio. Não depender exclusivamente de `UNIQUE CONSTRAINT` textual simples, pois a normalização pode evoluir. A implementação deve também considerar proteção contra concorrência para impedir duplicidades simultâneas.
 
 ## Alteração de campeonato
 
@@ -140,6 +250,7 @@ SolicitacaoAlteracaoCampeonato
  ├── dadosPropostos
  ├── camposAlterados
  ├── justificativa
+ ├── nrVersaoBaseCampeonato
  ├── dtSolicitacao
  ├── cdResponsavelDecisao
  ├── dtDecisao
@@ -154,16 +265,7 @@ Status mínimos:
 
 A justificativa do profissional é obrigatória.
 
-A solicitação deve preservar um snapshot suficiente do estado do campeonato no momento da solicitação para que o proprietário consiga comparar claramente:
-
-```text
-DADO ATUAL         NOVO DADO
---------------------------------
-Nome A          -> Nome B
-Organizador X   -> Organizador Y
-Data 10/10      -> Data 17/10
-Local A         -> Local B
-```
+A solicitação deve preservar snapshot suficiente para comparação, inclusive alterações de organizador, país, subdivisão, datas e local.
 
 Persistir somente uma descrição textual genérica não é suficiente.
 
@@ -192,10 +294,11 @@ Ao aprovar:
 1. revalidar que a solicitação continua `PENDENTE`;
 2. revalidar a versão atual do campeonato;
 3. verificar se o estado atual ainda corresponde à base usada na solicitação;
-4. aplicar os novos valores;
-5. registrar antes/depois definitivo;
-6. registrar proprietário responsável e data/hora;
-7. marcar solicitação como `APROVADA`.
+4. revalidar organizador, país, subdivisão e equivalência;
+5. aplicar os novos valores;
+6. registrar antes/depois definitivo;
+7. registrar proprietário responsável e data/hora;
+8. marcar solicitação como `APROVADA`.
 
 Se o campeonato tiver sido alterado desde a solicitação, a aprovação não deve sobrescrever silenciosamente dados mais recentes. Deve ocorrer conflito e nova análise.
 
@@ -214,11 +317,7 @@ Ao reprovar:
 
 Para o MVP, permitir no máximo uma `SolicitacaoAlteracaoCampeonato` `PENDENTE` por campeonato.
 
-Isso evita propostas concorrentes baseadas em estados diferentes.
-
 ## Cancelamento
-
-### Autoridade
 
 Somente o proprietário pode efetivamente executar:
 
@@ -228,22 +327,7 @@ ATIVO -> CANCELADO
 
 Nenhum profissional, inclusive criador do campeonato ou administrador de temporada, pode cancelar diretamente.
 
-### Solicitação de cancelamento
-
 Profissional pode solicitar cancelamento mediante justificativa obrigatória.
-
-```text
-Profissional
-    |
-    | justificativa
-    v
-Solicitação PENDENTE
-    |
-    v
-Proprietário
- ├── aprova  -> Campeonato CANCELADO
- └── reprova -> Campeonato permanece ATIVO
-```
 
 Entidade conceitual:
 
@@ -280,13 +364,9 @@ Ao cancelar o campeonato:
 
 Os resultados não devem ter seu próprio status funcional sobrescrito para `CANCELADO` somente porque o campeonato foi cancelado.
 
-A inativação decorre do estado do campeonato.
-
 ## Reativação de campeonato cancelado
 
-Diferentemente de uma `Temporada` cancelada, um campeonato cancelado pode ser reativado.
-
-A reativação preserva a mesma identidade.
+Diferentemente de uma `Temporada` cancelada, um campeonato cancelado pode ser reativado preservando a mesma identidade.
 
 Somente o proprietário pode executar:
 
@@ -294,23 +374,11 @@ Somente o proprietário pode executar:
 CANCELADO -> ATIVO
 ```
 
-## Tentativa de recadastro de campeonato cancelado
-
-Quando um profissional tentar cadastrar um campeonato correspondente a um registro `CANCELADO`, o sistema não deve permitir novo cadastro.
-
-A interface deve informar que já existe um campeonato cancelado correspondente e perguntar se deseja solicitar reativação.
+Quando um profissional tentar cadastrar um campeonato equivalente a um registro `CANCELADO`, o sistema não deve permitir novo cadastro e deve oferecer solicitação de reativação.
 
 A solicitação exige justificativa e somente o proprietário pode aprovar.
 
-A detecção usa como referência inicial:
-
-```text
-(nome normalizado, cdOrganizador, dtInicio)
-```
-
-## Solicitação de reativação
-
-Estrutura conceitual:
+### Solicitação de reativação
 
 ```text
 SolicitacaoReativacaoCampeonato
@@ -366,29 +434,20 @@ Campeonato não mantém coleção pré-configurada de categorias/classes. A comb
 
 Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 
-## Duplicidade
-
-A criação deve verificar campeonatos ativos e cancelados.
-
-Chave semântica recomendada:
-
-```text
-(nome normalizado, cdOrganizador, dtInicio)
-```
-
-Comportamento:
-
-- equivalente `ATIVO` -> bloquear duplicidade;
-- equivalente `CANCELADO` -> bloquear recadastro e oferecer solicitação de reativação;
-- inexistente -> permitir criação ordinária.
-
 ## Invariantes consolidadas
 
 - Organizador é catálogo central administrado pelo proprietário.
 - Campeonato exige organizador.
+- Campeonato exige país.
+- Campeonato exige subdivisão administrativa quando aplicável ao país.
+- País e subdivisão são selecionados de catálogo interno de referência.
+- O cadastro de campeonato não depende de API pública em tempo real.
+- `dsLocal` é opcional e não participa da identidade semântica.
 - Profissional pode criar campeonato diretamente.
 - Campeonato integra catálogo compartilhado.
 - Campeonato pode integrar várias temporadas.
+- Equivalência no MVP usa `(nomeNormalizado, organizador, país, subdivisão, data inicial)`.
+- `dtFim` e `dsLocal` não compõem a equivalência.
 - Campeonato que já teve inscrição ou resultado é considerado utilizado.
 - Profissional não altera diretamente campeonato utilizado.
 - Alteração de campeonato utilizado exige solicitação com justificativa.
@@ -403,7 +462,7 @@ Comportamento:
 - Cancelamento preserva inscrições e resultados.
 - Resultados de campeonato cancelado ficam esportivamente inativos sem alteração artificial de seu próprio status.
 - Campeonato cancelado não pode ser recadastrado com novo ID.
-- Tentativa de recadastro deve oferecer solicitação de reativação.
+- Tentativa de recadastro equivalente deve oferecer solicitação de reativação.
 - Solicitação de reativação exige justificativa.
 - Somente proprietário pode efetivar reativação.
 - Reativação utiliza o mesmo `cdCampeonato`/`cdCompeticao`.
@@ -412,11 +471,3 @@ Comportamento:
 - Rankings são recalculados no cancelamento e na reativação.
 - Categoria/classe não são pré-configuradas no campeonato.
 - Inscrição pertence ao campeonato, não à temporada.
-
-## Decisão técnica ainda aberta
-
-### Correspondência para impedir recadastro
-
-A regra funcional está fechada: campeonato cancelado equivalente não pode ser recadastrado.
-
-Ainda pode ser refinada tecnicamente a heurística de correspondência além de `(nome normalizado, organizador, data inicial)` para minimizar falsos positivos e falsos negativos sem enfraquecer a regra de domínio.
