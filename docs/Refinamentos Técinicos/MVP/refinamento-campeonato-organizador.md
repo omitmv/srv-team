@@ -17,8 +17,8 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - Deve informar subdivisão administrativa de primeiro nível quando aplicável ao país.
 - País e subdivisão pertencem a catálogo interno de referência baseado em códigos padronizados, preferencialmente ISO 3166 / ISO 3166-2.
 - O cadastro de campeonato não depende de API pública em tempo real.
-- `dtInicio` e `dtFim` têm finalidade informativa sobre o período do campeonato.
-- Campeonato de um único dia pode possuir `dtInicio = dtFim`.
+- `dtInicio` e `dtFim` são obrigatórias e têm finalidade informativa sobre o período do campeonato.
+- Campeonato de um único dia deve possuir `dtInicio = dtFim`.
 - Campeonato de vários dias possui `dtFim > dtInicio`.
 - As datas do campeonato não controlam automaticamente status, elegibilidade, inscrições, resultados ou pontuação.
 - O transcorrer da data final não encerra nem inativa automaticamente o campeonato.
@@ -113,10 +113,12 @@ Estados mínimos:
 
 ### Datas do campeonato
 
-`dtInicio` e `dtFim` representam somente o período informado do evento.
+`dtInicio` e `dtFim` são obrigatórias e representam somente o período informado do evento.
 
 Regras:
 
+- `dtInicio` obrigatória;
+- `dtFim` obrigatória;
 - campeonato de um dia: `dtInicio = dtFim`;
 - campeonato de vários dias: `dtFim > dtInicio`;
 - `dtFim` nunca pode ser anterior a `dtInicio`;
@@ -252,13 +254,14 @@ Profissional com permissão geral de criação de campeonato pode criar diretame
 
 Fluxo:
 
-1. informa nome, período e localização;
-2. seleciona organizador ativo;
-3. seleciona país ativo;
-4. seleciona subdivisão válida quando aplicável;
-5. sistema valida campos e equivalência;
-6. verifica campeonatos ativos e cancelados equivalentes;
-7. inexistindo conflito, cria no catálogo compartilhado.
+1. informa nome, `dtInicio`, `dtFim` e localização;
+2. valida presença obrigatória de `dtInicio` e `dtFim` e a regra `dtFim >= dtInicio`;
+3. seleciona organizador ativo;
+4. seleciona país ativo;
+5. seleciona subdivisão válida quando aplicável;
+6. sistema valida campos e equivalência;
+7. verifica campeonatos ativos e cancelados equivalentes;
+8. inexistindo conflito, cria no catálogo compartilhado.
 
 A criação não exige relação prévia com temporada porque o campeonato ainda não existe para ser associado. `cdCriador` registra autoria para auditoria, sem gerar propriedade exclusiva futura.
 
@@ -300,7 +303,7 @@ Enquanto nunca tiver existido `Inscricao` nem `Resultado` associado:
 - não é necessário ser o criador;
 - `cdCriador` não concede exclusividade;
 - cada edição deve ser auditada com responsável, data/hora e valores alterados;
-- toda alteração deve revalidar organizador, localização e equivalência antes de persistir;
+- toda alteração deve revalidar organizador, localização, datas e equivalência antes de persistir;
 - alteração não pode produzir duplicidade com outro campeonato ativo ou cancelado equivalente.
 
 ### Campeonato utilizado
@@ -359,7 +362,7 @@ Regras:
 - snapshot suficiente para comparação;
 - no máximo uma solicitação `PENDENTE` por campeonato;
 - somente proprietário decide;
-- aprovação revalida estado, versão, organizador, localização e equivalência;
+- aprovação revalida estado, versão, organizador, localização, datas e equivalência;
 - alteração concorrente não pode ser sobrescrita silenciosamente;
 - recomendar `@Version` em `Campeonato` e guardar versão-base na solicitação.
 
@@ -469,8 +472,9 @@ Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 
 - campeonato é compartilhado;
 - criador é auditoria, não proprietário exclusivo;
+- `dtInicio` e `dtFim` são obrigatórias;
 - datas do campeonato são informativas e não dirigem automaticamente o ciclo de vida;
-- campeonato de um dia admite `dtInicio = dtFim`;
+- campeonato de um dia exige `dtInicio = dtFim`;
 - campeonato de vários dias exige `dtFim > dtInicio`;
 - terminar a data do campeonato não muda automaticamente seu estado;
 - autorização profissional sobre campeonato existente deriva de relação administrativa com ao menos uma temporada vinculada ao campeonato;
