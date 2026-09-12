@@ -134,19 +134,26 @@ São permitidas duas operações administrativas:
 
 Essas operações possuem efeito imediato e não exigem nova aprovação do atleta.
 
+Toda intervenção administrativa sobre resultado aprovado exige justificativa obrigatória e deve ser integralmente auditada.
+
+Nenhuma notificação deve ser enviada ao atleta, profissionais ou demais usuários em decorrência da correção ou do cancelamento administrativo realizado pelo proprietário.
+
 ### Correção direta
 
 Ao corrigir um resultado `APROVADO`, o proprietário pode alterar os dados esportivos do registro, incluindo categoria, classe e colocação, respeitando as invariantes estruturais do domínio.
 
 A correção administrativa deve:
 
+- exigir justificativa obrigatória;
 - manter o mesmo `cdResultado`;
 - incrementar a versão do resultado;
 - manter `status = APROVADO`;
 - registrar proprietário responsável pela alteração;
 - registrar data/hora;
+- registrar a justificativa da intervenção;
 - preservar os valores anteriores em histórico/auditoria;
-- recalcular pontuação, rankings e relatórios afetados imediatamente.
+- recalcular pontuação, rankings e relatórios afetados imediatamente;
+- não gerar notificações.
 
 Não há retorno para `PENDENTE_APROVACAO` e não há nova solicitação de aprovação ao atleta.
 
@@ -164,13 +171,15 @@ APROVADO -> CANCELADO
 
 O cancelamento deve:
 
+- exigir justificativa obrigatória;
 - registrar `cdResponsavelCancelamento`;
 - registrar `dtCancelamento`;
+- registrar `motivoCancelamento`;
 - preservar o resultado integralmente no histórico;
-- permitir justificativa/motivo administrativo;
 - remover imediatamente o resultado de pontuação, rankings e relatórios esportivos;
 - recalcular todas as temporadas e projeções afetadas;
-- liberar a combinação `(cdInscricao, cdCategoria, cdClasse)` para um novo lançamento, caso necessário.
+- liberar a combinação `(cdInscricao, cdCategoria, cdClasse)` para um novo lançamento, caso necessário;
+- não gerar notificações.
 
 O cancelamento administrativo não exclui fisicamente o resultado.
 
@@ -264,6 +273,7 @@ O histórico deve permitir reconstruir:
 - motivo da reprovação;
 - quais correções administrativas foram realizadas após aprovação;
 - valores anteriores e novos de cada correção administrativa;
+- justificativa de cada intervenção administrativa;
 - eventual cancelamento administrativo posterior;
 - responsável e data de cada intervenção do proprietário.
 
@@ -298,8 +308,11 @@ Qualquer correção ou cancelamento administrativo de um resultado aprovado deve
 - Proprietário pode corrigir diretamente resultado `APROVADO`.
 - Correção administrativa mantém o resultado `APROVADO`, incrementa versão e tem efeito imediato.
 - Correção administrativa não exige nova aprovação do atleta.
+- Correção administrativa exige justificativa obrigatória.
 - Proprietário pode cancelar diretamente resultado `APROVADO`.
 - Cancelamento administrativo transforma o resultado em `CANCELADO` e tem efeito imediato.
+- Cancelamento administrativo exige justificativa obrigatória.
+- Intervenções administrativas do proprietário não geram notificações.
 - Toda intervenção do proprietário deve ser auditada e preservar o estado anterior.
 - Reprovação pelo atleta transforma o lançamento em `CANCELADO`.
 - Resultado cancelado permanece no histórico.
@@ -310,5 +323,4 @@ Qualquer correção ou cancelamento administrativo de um resultado aprovado deve
 ## Próximos pontos de refinamento
 
 1. Fechar estratégia técnica de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
-2. Definir requisitos de justificativa/notificação nas intervenções administrativas do proprietário.
-3. Refinar migração/aposentadoria de `tbPontuacaoHist`.
+2. Refinar migração/aposentadoria de `tbPontuacaoHist`.
