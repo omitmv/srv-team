@@ -1,6 +1,6 @@
 # Refinamento técnico — Temporada
 
-Status: estrutura inicial derivada das regras consolidadas em `mvp-pontuacao.md`; decisões abertas identificadas para fechamento com o proprietário do produto.
+Status: decisões de negócio consolidadas para o MVP; refinamento técnico em andamento.
 
 ## Objetivo
 
@@ -21,8 +21,9 @@ A temporada define o contexto de pontuação:
 ```text
 Temporada
  ├── criador
+ ├── nome
  ├── período
- ├── critérios
+ ├── estado administrativo
  ├── profissionais autorizados
  ├── administradores convidados
  ├── campeonatos selecionados
@@ -36,7 +37,7 @@ Os pontos não pertencem universalmente ao campeonato. O mesmo resultado pode pr
 
 `Temporada`
 
-Campos conceituais iniciais:
+Campos conceituais:
 
 - `cdTemporada`
 - `dsNome`
@@ -44,32 +45,65 @@ Campos conceituais iniciais:
 - `dtInicio`
 - `dtEncerramento`
 - `status`
-- `criterios`
 - `dtCadastro`
 - campos de auditoria
 
+Não criar campo genérico `criterios` no MVP. Critérios devem existir apenas quando possuírem semântica de negócio explícita.
+
+`dsNome` é obrigatório, livre e deve possuir limite de tamanho. Não usar ano como identidade exclusiva da temporada.
+
 `cdCriador` identifica o profissional proprietário funcional da temporada.
+
+## Período
+
+- `dtInicio` e `dtEncerramento` representam o período nominal da temporada.
+- O período não restringe automaticamente quais campeonatos podem ser associados.
+- Campeonatos fora desse período podem ser associados explicitamente.
+- Um mesmo profissional pode possuir temporadas com períodos sobrepostos.
+- O período não deve ser usado como chave de unicidade da temporada.
 
 ## Estado da temporada
 
-Não assumir que `dtEncerramento` congela os dados. O MVP já determina que rankings históricos continuam dinâmicos conforme vínculos, conta do atleta, campeonatos associados e tabela vigente.
+O estado representa principalmente o ciclo administrativo, não um snapshot esportivo imutável.
 
-Portanto, o estado da temporada deve representar principalmente seu ciclo administrativo e não um snapshot imutável do ranking.
-
-Estados candidatos para refinamento:
+Estados recomendados:
 
 - `RASCUNHO`
 - `ATIVA`
 - `ENCERRADA`
 - `CANCELADA`
 
-A necessidade de todos esses estados ainda deve ser confirmada. Não implementar enum definitivo antes do fechamento da regra.
+### RASCUNHO
+
+Permite configuração antes da disponibilização normal da temporada.
+
+### ATIVA
+
+Permite operação ordinária conforme as permissões do usuário.
+
+### ENCERRADA
+
+- bloqueia alterações ordinárias de configuração para criador e administradores convidados;
+- continua disponível para consulta conforme autorização;
+- continua sujeita a recálculos derivados decorrentes de alterações externas permitidas pelo domínio, como vínculo, conta do atleta e intervenções administrativas;
+- não representa congelamento do ranking;
+- o proprietário pode intervir administrativamente e, quando necessário, reabrir a temporada.
+
+### CANCELADA
+
+Representa cancelamento lógico. A temporada e seu histórico não devem ser removidos quando já utilizados.
+
+## Exclusão
+
+Não permitir exclusão física de temporada que já possua qualquer elemento relevante associado, incluindo campeonatos, permissões, tabela de pontos ou participação calculável.
+
+Utilizar cancelamento lógico para preservar integridade referencial e auditoria.
 
 ## Criador
 
 - Toda temporada possui exatamente um criador.
 - O criador deve ser um usuário elegível como profissional de atendimento.
-- O criador possui administração integral da temporada.
+- O criador possui administração integral da temporada enquanto seu estado permitir operação administrativa ordinária.
 - O criador define tabela, campeonatos e permissões da temporada.
 - O vínculo de um atleta com administradores convidados não torna esse atleta elegível para a temporada; a elegibilidade esportiva depende do vínculo atual com o criador.
 
@@ -107,45 +141,89 @@ A relação é N:N:
 Temporada N ---- N Campeonato
 ```
 
-Criar associação explícita, conceitualmente `TemporadaCampeonato`, em vez de adicionar `cdTemporada` ao campeonato.
+Criar associação explícita `TemporadaCampeonato`, em vez de adicionar `cdTemporada` ao campeonato.
 
-Campos iniciais:
+Campos recomendados:
 
 - `cdTemporadaCampeonato`
 - `cdTemporada`
-- `cdCampeonato`
+- `cdCompeticao`
 - `dtAssociacao`
-- auditoria
+- campos de auditoria
 
-Regras já consolidadas:
+Invariantes:
 
+- não pode existir associação duplicada entre a mesma temporada e campeonato;
 - um campeonato pode participar de várias temporadas;
-- campeonatos podem ser associados mesmo quando sua data estiver fora do período informado da temporada;
+- campeonatos podem ser associados mesmo quando sua data estiver fora do período nominal da temporada;
 - adicionar campeonato pode alterar elegibilidade e ranking;
 - remover associação recalcula o ranking;
 - remover associação não cancela nem exclui campeonato, inscrições ou resultados;
-- criador e administradores autorizados podem alterar a composição mesmo após existirem resultados.
+- durante `RASCUNHO` ou `ATIVA`, criador e administradores autorizados podem alterar a composição;
+- em `ENCERRADA`, alterações ordinárias de composição ficam bloqueadas, salvo intervenção administrativa do proprietário.
 
 ## Tabela de pontos
 
-A tabela pertence à temporada.
+### Incompatibilidade com o modelo atual
 
-Não reutilizar `Pontuacao` atual como tabela universal por competição sem revisar sua semântica.
+A entidade atual `Pontuacao` está ligada diretamente a `cdCompeticao`. Essa semântica não atende o domínio consolidado do MVP.
 
-Estrutura conceitual sugerida:
+A tabela de pontos pertence à temporada, não ao campeonato.
 
-`TemporadaPontuacao`
+Um campeonato fornece colocações/resultados. A conversão da colocação em pontos acontece no contexto de cada temporada elegível.
+
+Portanto, `tbPontuacao` não deve permanecer como tabela universal por competição.
+
+### Nova semântica proposta
+
+Criar entidade conceitual `TemporadaPontuacao`:
 
 - `cdTemporadaPontuacao`
 - `cdTemporada`
 - `posicao`
 - `tipoClasse`
 - `pontuacao`
-- auditoria
+- campos de auditoria
 
-A chave lógica deve impedir regras ambíguas para a mesma combinação de temporada, posição e tipo de classe.
+Tipos de classe para pontuação no MVP:
 
-Alterações na tabela recalculam rankings existentes; o MVP não congela a pontuação histórica no momento em que o resultado é aprovado.
+- `COMUM`
+- `OVERALL`
+
+A categoria esportiva não participa da chave da tabela de pontos. Para uma mesma temporada, posição e tipo de classe, a pontuação é igual em todas as categorias.
+
+### Invariantes da tabela
+
+- unicidade lógica em `(cdTemporada, posicao, tipoClasse)`;
+- `posicao` deve ser positiva;
+- não permitir duas regras conflitantes para a mesma combinação;
+- colocação sem regra cadastrada vale `0` ponto;
+- alterações na tabela recalculam rankings, inclusive de resultados anteriores;
+- a pontuação calculada não deve ser persistida como valor histórico autoritativo por resultado;
+- precisão decimal deve ser preservada; limite e arredondamento devem ser definidos separadamente.
+
+## Relação entre Campeonato e Pontuação
+
+Não existe relação direta de propriedade:
+
+```text
+Campeonato
+   │
+   └── Resultado: atleta + categoria + classe + colocação
+
+Temporada
+   ├── associa Campeonato
+   └── possui Tabela de Pontos
+
+Resultado aprovado
+   + Temporada elegível
+   + tipo da classe
+   + colocação
+   ─────────────────────
+          Pontos calculados
+```
+
+O mesmo resultado aprovado pode gerar valores diferentes em temporadas distintas.
 
 ## Elegibilidade do atleta
 
@@ -183,55 +261,24 @@ A fonte de verdade deve permanecer nas entidades de domínio:
 
 Caso performance exija materialização posterior, tratar como projeção/cache recalculável, e não como origem autoritativa do dado.
 
-## Invariantes iniciais
+## Invariantes consolidadas
 
 - temporada possui exatamente um criador;
+- `dsNome` é obrigatório e livre;
 - criador deve ser profissional elegível;
+- temporadas do mesmo criador podem possuir períodos sobrepostos;
 - campeonato não pertence exclusivamente à temporada;
 - não pode existir associação duplicada entre a mesma temporada e campeonato;
 - não pode existir permissão duplicada semanticamente para o mesmo usuário/temporada;
 - tabela não pode possuir duas regras conflitantes para a mesma combinação de posição e tipo de classe;
 - rankings são derivados das regras vigentes;
-- encerramento temporal da temporada não congela automaticamente rankings.
+- encerramento temporal da temporada não congela automaticamente rankings;
+- temporada utilizada não deve sofrer exclusão física;
+- não existe campo genérico `criterios` enquanto não houver regra concreta que o justifique.
 
-## Decisões abertas para fechamento
+## Próximos pontos de refinamento
 
-### T1 — Nome da temporada
-
-Definir se `dsNome` é obrigatório e livre (ex.: `Temporada 2026`, `Ranking 2026`) ou se existe uma convenção de nomenclatura.
-
-Recomendação: nome obrigatório, livre, com limite de tamanho; não derivar identidade apenas do ano.
-
-### T2 — Sobreposição de períodos
-
-Definir se um mesmo profissional pode criar temporadas cujos períodos se sobreponham.
-
-Recomendação: permitir. Como campeonatos e critérios são selecionados explicitamente, impedir sobreposição introduziria uma restrição que não parece necessária ao domínio.
-
-### T3 — Significado de encerramento
-
-Definir quais operações ficam bloqueadas quando a temporada está `ENCERRADA`.
-
-A regra já consolidada permite que rankings históricos mudem e afirma que tabela/composição podem ser alteradas mesmo após resultados lançados, mas ainda precisamos decidir se isso continua permitido depois do encerramento formal.
-
-Recomendação: `ENCERRADA` bloquear alterações ordinárias de configuração para profissionais, mantendo consulta e recálculos derivados automáticos. O proprietário poderia reabrir/intervir administrativamente. Isso evita que uma temporada encerrada seja editada acidentalmente sem transformar ranking em snapshot histórico.
-
-### T4 — Exclusão ou cancelamento
-
-Definir se temporada já utilizada pode ser excluída fisicamente.
-
-Recomendação: não permitir exclusão física após possuir campeonatos, permissões ou participação calculável. Usar cancelamento lógico e preservar histórico/auditoria.
-
-### T5 — Critérios adicionais
-
-O `mvp-pontuacao.md` menciona critérios próprios da temporada, mas seu conteúdo ainda não foi especificado.
-
-Precisamos decidir se há algum critério além de:
-
-- vínculo com o criador;
-- inscrição confirmada em campeonato associado;
-- conta elegível;
-- tabela de pontos;
-- categoria/classe dos resultados.
-
-Se não houver regra adicional necessária para o MVP, remover o conceito genérico `criterios` da entidade em vez de criar JSON ou campo textual sem semântica definida.
+1. Definir precisão, escala, arredondamento e domínio válido da pontuação (`zero` e valores negativos).
+2. Refinar catálogo de categoria/classe e identificar tecnicamente como distinguir classe comum de `OVERALL`.
+3. Refinar migração/aposentadoria da atual `tbPontuacao` e de `tbPontuacaoHist` para as novas entidades do domínio.
+4. Refinar `Inscricao` e `Resultado`, que são as próximas fontes autoritativas necessárias para o cálculo do ranking.
