@@ -88,6 +88,35 @@ Essas situações são independentes do `status` de workflow do resultado.
 - pode gerar penalidade específica na temporada;
 - deve ser tratado separadamente de `DESCLASSIFICADO`.
 
+## Lançamento manual da situação esportiva
+
+Toda situação esportiva é informada explicitamente por um profissional autorizado.
+
+O sistema não deve inferir automaticamente `CLASSIFICADO`, `DESCLASSIFICADO` ou `AUSENTE` a partir de inscrição, ausência de colocação, falta de lançamento anterior, presença em campeonato ou qualquer outro dado indireto.
+
+Fluxos funcionais equivalentes:
+
+```text
+Profissional informa CLASSIFICADO + colocacao
+        -> PENDENTE_APROVACAO
+
+Profissional informa DESCLASSIFICADO
+        -> PENDENTE_APROVACAO
+
+Profissional informa AUSENTE
+        -> PENDENTE_APROVACAO
+```
+
+Portanto:
+
+- colocação é lançada manualmente pelo profissional;
+- desclassificação é lançada manualmente pelo profissional;
+- ausência é lançada manualmente pelo profissional;
+- nenhuma dessas situações produz efeito esportivo antes da aprovação do atleta;
+- ausência de um lançamento não pode ser interpretada como `AUSENTE`;
+- ausência de colocação não pode ser interpretada como `DESCLASSIFICADO`;
+- nenhuma penalidade pode ser aplicada com base em inferência automática.
+
 ## Unicidade da colocação no campeonato
 
 No resultado oficial do campeonato **não existe empate de colocação** dentro da mesma combinação de campeonato, categoria e classe.
@@ -330,6 +359,10 @@ AUSENTE
 - Situações mínimas: `CLASSIFICADO`, `DESCLASSIFICADO`, `AUSENTE`.
 - `CLASSIFICADO` exige `colocacao > 0`.
 - `DESCLASSIFICADO` e `AUSENTE` exigem colocação nula.
+- Toda situação esportiva é lançada manualmente por profissional autorizado.
+- O sistema não infere ausência ou desclassificação automaticamente.
+- Ausência de lançamento não equivale a `AUSENTE`.
+- Ausência de colocação não equivale a `DESCLASSIFICADO`.
 - Não existe empate de colocação dentro da mesma combinação campeonato/categoria/classe.
 - Uma colocação classificatória informada é única nesse conjunto esportivo.
 - Posições superiores ao limite consolidado pela temporada podem não ser lançadas.
