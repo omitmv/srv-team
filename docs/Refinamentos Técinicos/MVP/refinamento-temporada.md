@@ -190,7 +190,23 @@ Tipos de classe para pontuação no MVP:
 - `COMUM`
 - `OVERALL`
 
+`tipoClasse` deve ser obtido da própria entidade `Classe` usada no resultado, e não inferido pelo nome ou informado livremente no lançamento.
+
 A categoria esportiva não participa da chave da tabela de pontos. Para uma mesma temporada, posição e tipo de classe, a pontuação é igual em todas as categorias.
+
+### Domínio numérico consolidado
+
+- utilizar `BigDecimal`;
+- `precision = 10`;
+- `scale = 3`;
+- `pontuacao` obrigatória e nunca `null`;
+- permitir `0`;
+- não permitir valor negativo no MVP;
+- `posicao` deve ser maior que zero;
+- colocação sem regra cadastrada vale `0` ponto;
+- quando alguma operação matemática exigir arredondamento para a escala persistida/apresentada, utilizar `RoundingMode.HALF_UP`.
+
+A regra de pontuação atual é soma de valores já definidos na tabela; portanto, o arredondamento não deve ser aplicado desnecessariamente a cada etapa intermediária. Preservar `BigDecimal` durante agregações.
 
 ### Invariantes da tabela
 
@@ -200,7 +216,7 @@ A categoria esportiva não participa da chave da tabela de pontos. Para uma mesm
 - colocação sem regra cadastrada vale `0` ponto;
 - alterações na tabela recalculam rankings, inclusive de resultados anteriores;
 - a pontuação calculada não deve ser persistida como valor histórico autoritativo por resultado;
-- precisão decimal deve ser preservada; limite e arredondamento devem ser definidos separadamente.
+- valores negativos não são aceitos no MVP.
 
 ## Relação entre Campeonato e Pontuação
 
@@ -271,6 +287,9 @@ Caso performance exija materialização posterior, tratar como projeção/cache 
 - não pode existir associação duplicada entre a mesma temporada e campeonato;
 - não pode existir permissão duplicada semanticamente para o mesmo usuário/temporada;
 - tabela não pode possuir duas regras conflitantes para a mesma combinação de posição e tipo de classe;
+- pontuação usa `BigDecimal(10,3)`, aceita zero e rejeita negativos;
+- `posicao > 0`;
+- classe determina explicitamente `COMUM` ou `OVERALL`;
 - rankings são derivados das regras vigentes;
 - encerramento temporal da temporada não congela automaticamente rankings;
 - temporada utilizada não deve sofrer exclusão física;
@@ -278,7 +297,6 @@ Caso performance exija materialização posterior, tratar como projeção/cache 
 
 ## Próximos pontos de refinamento
 
-1. Definir precisão, escala, arredondamento e domínio válido da pontuação (`zero` e valores negativos).
-2. Refinar catálogo de categoria/classe e identificar tecnicamente como distinguir classe comum de `OVERALL`.
-3. Refinar migração/aposentadoria da atual `tbPontuacao` e de `tbPontuacaoHist` para as novas entidades do domínio.
-4. Refinar `Inscricao` e `Resultado`, que são as próximas fontes autoritativas necessárias para o cálculo do ranking.
+1. Refinar catálogo de categoria/classe e suas regras de inativação, unicidade e identificação explícita de `OVERALL`.
+2. Refinar migração/aposentadoria da atual `tbPontuacao` e de `tbPontuacaoHist` para as novas entidades do domínio.
+3. Refinar `Inscricao` e `Resultado`, que são as próximas fontes autoritativas necessárias para o cálculo do ranking.
