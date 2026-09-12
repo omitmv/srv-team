@@ -69,15 +69,6 @@ Valores mínimos do MVP:
 
 Essas situações são independentes do `status` de workflow do resultado.
 
-Exemplo:
-
-```text
-status = APROVADO
-situacaoResultado = DESCLASSIFICADO
-```
-
-significa que o atleta aprovou o lançamento e que o desfecho esportivo daquele lançamento foi uma desclassificação.
-
 ### CLASSIFICADO
 
 - exige `colocacao > 0`;
@@ -95,7 +86,61 @@ significa que o atleta aprovou o lançamento e que o desfecho esportivo daquele 
 - não possui colocação classificatória;
 - `colocacao` deve ser `null`;
 - pode gerar penalidade específica na temporada;
-- deve ser tratado separadamente de `DESCLASSIFICADO`, pois cada temporada poderá definir comportamento e valor distintos.
+- deve ser tratado separadamente de `DESCLASSIFICADO`.
+
+## Unicidade da colocação no campeonato
+
+No resultado oficial do campeonato **não existe empate de colocação** dentro da mesma combinação de campeonato, categoria e classe.
+
+Para resultados `CLASSIFICADO`, uma colocação informada deve ser única no conjunto esportivo correspondente.
+
+Conceitualmente:
+
+```text
+(cdCampeonato, cdCategoria, cdClasse, colocacao)
+```
+
+não pode pertencer simultaneamente a dois resultados ativos/aprovados de atletas diferentes.
+
+Exemplo válido:
+
+```text
+Atleta A -> 1º
+Atleta B -> 2º
+Atleta C -> 3º
+```
+
+Exemplo inválido:
+
+```text
+Atleta A -> 1º
+Atleta B -> 2º
+Atleta C -> 2º
+```
+
+Essa regra é diferente do empate no **ranking da temporada**, onde atletas podem possuir o mesmo total de pontos.
+
+### Colocações não informadas
+
+A temporada pode consolidar pontuação somente até determinada posição. Nesse cenário, posições esportivas superiores podem simplesmente não ser lançadas no sistema.
+
+Exemplo:
+
+```text
+Temporada pontua até 5º lugar.
+Campeonato possui 8 classificados.
+
+Resultados 1º a 5º -> podem ser lançados
+Resultados 6º a 8º -> podem não ser informados
+```
+
+Consequências:
+
+- não é necessário criar resultados artificiais para posições não utilizadas pela temporada;
+- ausência de lançamento de posição superior não equivale a `AUSENTE`;
+- ausência de lançamento não gera penalidade;
+- não preencher lacunas automaticamente;
+- se uma colocação superior for efetivamente lançada, continua sujeita à unicidade esportiva e pode valer zero caso a temporada não possua regra de pontuação para ela.
 
 ## Estados do resultado
 
@@ -113,15 +158,9 @@ A reprovação é uma ação do atleta que encerra aquele lançamento e o transf
 
 `CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` seguem exatamente o mesmo fluxo funcional de lançamento e aprovação.
 
-Nenhuma dessas situações produz efeito esportivo apenas por ter sido informada pelo profissional.
-
-Fluxo:
-
 ```text
 Profissional lança Resultado
         |
-        | situacaoResultado =
-        | CLASSIFICADO | DESCLASSIFICADO | AUSENTE
         v
 PENDENTE_APROVACAO
         |
@@ -133,13 +172,12 @@ PENDENTE_APROVACAO
 Consequências:
 
 - resultado `CLASSIFICADO` só gera pontos depois da aprovação do atleta;
-- resultado `DESCLASSIFICADO` só pode aplicar penalidade da temporada depois da aprovação do atleta;
-- resultado `AUSENTE` só pode aplicar penalidade da temporada depois da aprovação do atleta;
-- enquanto estiver `PENDENTE_APROVACAO`, nenhuma das três situações altera pontuação ou ranking;
-- reprovação do atleta cancela o lançamento independentemente da situação esportiva;
-- eventual novo lançamento após reprovação segue novamente o fluxo completo de aprovação.
+- resultado `DESCLASSIFICADO` só pode aplicar penalidade depois da aprovação do atleta;
+- resultado `AUSENTE` só pode aplicar penalidade depois da aprovação do atleta;
+- enquanto `PENDENTE_APROVACAO`, nenhuma situação altera pontuação ou ranking;
+- reprovação cancela o lançamento independentemente da situação esportiva.
 
-O atleta aprova o **resultado informado**, incluindo sua `situacaoResultado`. A aprovação não representa concordância com a regra de pontuação da temporada; a penalidade é calculada posteriormente segundo a configuração da temporada aplicável.
+O atleta aprova o resultado informado, incluindo sua `situacaoResultado`. A aprovação não representa concordância com a regra de pontuação da temporada.
 
 ## Validade esportiva
 
@@ -153,22 +191,11 @@ Consequentemente:
 - `APROVADO + DESCLASSIFICADO` pode gerar penalidade definida pela temporada;
 - `APROVADO + AUSENTE` pode gerar penalidade definida pela temporada.
 
-A penalidade não é propriedade universal do resultado. Ela pertence à regra da temporada que interpreta aquele resultado.
+A penalidade não é propriedade universal do resultado. Ela pertence à regra da temporada.
 
 ## Edição enquanto pendente
 
 Enquanto o resultado estiver em `PENDENTE_APROVACAO`, ele pode ser editado por qualquer profissional que possua vínculo ativo com o atleta da inscrição.
-
-A autorização não depende de o profissional ter sido o responsável pelo lançamento original.
-
-Regra de autorização mínima:
-
-```text
-Resultado.status == PENDENTE_APROVACAO
-AND
-existe VinculoProfissionalAtleta ATIVO
-para (profissional, atleta da Inscricao)
-```
 
 A edição deve:
 
@@ -178,7 +205,7 @@ A edição deve:
 - registrar quem realizou a alteração e quando;
 - invalidar qualquer solicitação de aprovação vinculada a versão anterior;
 - manter o resultado em `PENDENTE_APROVACAO`;
-- exigir aprovação do atleta sobre a versão atualizada antes de qualquer efeito esportivo.
+- exigir aprovação do atleta sobre a versão atualizada.
 
 Após `APROVADO`, a permissão ordinária de edição por profissionais deixa de existir.
 
@@ -194,7 +221,8 @@ Pode alterar categoria, classe, situação esportiva e colocação, respeitando 
 
 - `CLASSIFICADO` exige colocação positiva;
 - `DESCLASSIFICADO` exige colocação nula;
-- `AUSENTE` exige colocação nula.
+- `AUSENTE` exige colocação nula;
+- colocação de `CLASSIFICADO` deve continuar única na combinação campeonato/categoria/classe.
 
 A correção mantém o mesmo `cdResultado`, incrementa `nrVersao`, mantém `status = APROVADO` e recalcula projeções afetadas.
 
@@ -204,7 +232,7 @@ A correção mantém o mesmo `cdResultado`, incrementa `nrVersao`, mantém `stat
 APROVADO -> CANCELADO
 ```
 
-O cancelamento preserva histórico, remove imediatamente qualquer efeito esportivo do resultado e libera a combinação para novo lançamento.
+O cancelamento preserva histórico, remove qualquer efeito esportivo e libera a combinação para novo lançamento.
 
 ## Reprovação pelo atleta
 
@@ -215,11 +243,7 @@ Quando o atleta reprova um resultado:
 3. preservar integralmente o registro;
 4. liberar a combinação `(cdInscricao, cdCategoria, cdClasse)` para novo lançamento.
 
-O profissional deverá criar novo `Resultado`; o registro cancelado não é corrigido e reutilizado.
-
 ## Controle de versão e concorrência
-
-### Versão de negócio — `nrVersao`
 
 Novo resultado nasce com `nrVersao = 1`.
 
@@ -230,9 +254,7 @@ Toda alteração esportiva relevante incrementa a versão, incluindo:
 - `situacaoResultado`;
 - colocação.
 
-A aprovação/reprovação do atleta deve informar a versão visualizada e falhar com conflito se ela estiver desatualizada.
-
-### Concorrência técnica — `lockVersion`
+A aprovação/reprovação do atleta deve informar a versão visualizada e falhar com conflito se estiver desatualizada.
 
 Usar controle técnico de concorrência otimista, preferencialmente JPA `@Version`.
 
@@ -263,7 +285,6 @@ Campos mínimos recomendados:
 - `cdResultadoHistorico`
 - `cdResultado`
 - `nrVersao`
-- `tipoEvento`
 - `cdInscricao`
 - `cdCategoria`
 - `cdClasse`
@@ -275,15 +296,6 @@ Campos mínimos recomendados:
 - `justificativa`
 - auditoria
 
-Eventos mínimos:
-
-- `CRIACAO`
-- `EDICAO_PENDENTE`
-- `APROVACAO_ATLETA`
-- `REPROVACAO_ATLETA`
-- `CORRECAO_ADMINISTRATIVA`
-- `CANCELAMENTO_ADMINISTRATIVO`
-
 Histórico é imutável e não é fonte de verdade operacional.
 
 ## Migração da `tbPontuacaoHist`
@@ -294,13 +306,9 @@ Somente converter para `Resultado` quando todos os atributos obrigatórios puder
 
 Não inferir `DESCLASSIFICADO` ou `AUSENTE` a partir de colocação ausente, nula ou zero em dados legados sem evidência explícita.
 
-Registros não conversíveis permanecem preservados para consulta/auditoria histórica durante a transição.
-
 ## Relação com a pontuação da temporada
 
 `Resultado` não persiste valor de pontos ou penalidade como verdade autoritativa.
-
-A temporada interpreta o resultado aprovado:
 
 ```text
 CLASSIFICADO
@@ -314,30 +322,24 @@ AUSENTE
   -> TemporadaPenalidade.AUSENCIA
 ```
 
-O mesmo resultado pode:
-
-- valer pontuação diferente em temporadas distintas;
-- gerar penalidade diferente em temporadas distintas;
-- gerar zero em uma temporada e valor negativo em outra.
-
 ## Decisões consolidadas
 
 - Resultado pertence a um ciclo específico de `Inscricao`.
 - Uma inscrição pode possuir vários resultados.
 - Há no máximo um resultado ativo por `(Inscricao, Categoria, Classe)`.
-- Resultado possui `situacaoResultado` explícita.
 - Situações mínimas: `CLASSIFICADO`, `DESCLASSIFICADO`, `AUSENTE`.
 - `CLASSIFICADO` exige `colocacao > 0`.
 - `DESCLASSIFICADO` e `AUSENTE` exigem colocação nula.
-- Desclassificação e ausência são conceitos distintos.
-- Todo novo lançamento nasce `PENDENTE_APROVACAO`, independentemente da situação esportiva.
-- `CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` seguem o mesmo fluxo de aprovação/reprovação pelo atleta.
+- Não existe empate de colocação dentro da mesma combinação campeonato/categoria/classe.
+- Uma colocação classificatória informada é única nesse conjunto esportivo.
+- Posições superiores ao limite consolidado pela temporada podem não ser lançadas.
+- Posição não lançada não equivale a ausência e não gera penalidade.
+- Todo novo lançamento nasce `PENDENTE_APROVACAO`.
+- Todas as situações seguem o mesmo fluxo de aprovação/reprovação pelo atleta.
 - Somente `APROVADO` produz efeito esportivo.
-- Resultado desclassificado ou ausente aprovado pode gerar penalidade da temporada.
 - Penalidade não é persistida no resultado.
 - Enquanto pendente, qualquer profissional com vínculo ativo com o atleta pode editar.
-- Alterar `situacaoResultado` invalida a versão apresentada anteriormente ao atleta e incrementa `nrVersao`.
-- Edição relevante incrementa `nrVersao`.
+- Alteração relevante incrementa `nrVersao`.
 - `nrVersao` e `lockVersion` permanecem separados.
 - Após `APROVADO`, profissionais não editam pelo fluxo ordinário.
 - Proprietário pode corrigir/cancelar resultado aprovado mediante justificativa, sem notificação.
