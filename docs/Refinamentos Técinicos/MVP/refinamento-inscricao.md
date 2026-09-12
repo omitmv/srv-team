@@ -229,6 +229,32 @@ A partir da inscrição, o resultado consegue obter:
 
 Assim, não é necessário duplicar `cdAtleta` e `cdCompeticao` como fonte autoritativa dentro de `Resultado`.
 
+### Multiplicidade e unicidade dos resultados
+
+Uma mesma inscrição pode possuir vários resultados, pois o atleta pode disputar diferentes combinações de categoria e classe no mesmo campeonato.
+
+Entretanto, dentro do mesmo ciclo de inscrição, deve existir no máximo um resultado ativo para cada combinação:
+
+```text
+(cdInscricao, cdCategoria, cdClasse)
+```
+
+Exemplo válido:
+
+```text
+Inscrição #123
+ ├── Classic Physique + Sênior  -> 1º
+ ├── Classic Physique + Master  -> 2º
+ ├── Bodybuilding + Sênior      -> 3º
+ └── Classic Physique + Overall -> 1º
+```
+
+Não é válido manter simultaneamente dois resultados ativos para a mesma categoria e classe dentro da mesma inscrição.
+
+Registros anteriores da mesma combinação podem existir exclusivamente como histórico, versionamento, reprovação ou cancelamento, conforme o modelo de `Resultado`.
+
+A unicidade pertence ao ciclo de inscrição, e não globalmente ao par atleta/campeonato. Uma eventual reinscrição cria outro `cdInscricao`, permitindo novos resultados sem reativar os resultados do ciclo anterior.
+
 ## Relação com Temporada
 
 A inscrição não pertence a uma temporada.
@@ -295,6 +321,9 @@ A estratégia concreta de migration será definida após o modelo de `Resultado`
 - Reinscrição cria novo registro.
 - Resultados antigos não são reativados em reinscrição.
 - `Resultado` deve referenciar `cdInscricao`.
+- Uma inscrição pode possuir vários resultados.
+- Dentro da mesma inscrição, existe no máximo um resultado ativo por combinação de categoria e classe.
+- A repetição histórica da mesma combinação é permitida apenas para preservar versionamento, reprovações, cancelamentos ou demais eventos históricos do resultado.
 
 ## Próximo refinamento
 
