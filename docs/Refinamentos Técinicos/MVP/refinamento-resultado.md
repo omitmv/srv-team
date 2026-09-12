@@ -109,18 +109,37 @@ Não é necessário manter `REPROVADO` como estado ativo separado.
 
 A reprovação é uma ação do atleta que encerra aquele lançamento e o transforma em `CANCELADO`, preservando no histórico o motivo, o responsável pela decisão e a data.
 
-Fluxo principal:
+## Fluxo único de aprovação para todas as situações esportivas
+
+`CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` seguem exatamente o mesmo fluxo funcional de lançamento e aprovação.
+
+Nenhuma dessas situações produz efeito esportivo apenas por ter sido informada pelo profissional.
+
+Fluxo:
 
 ```text
-Novo lançamento
-      |
-      v
+Profissional lança Resultado
+        |
+        | situacaoResultado =
+        | CLASSIFICADO | DESCLASSIFICADO | AUSENTE
+        v
 PENDENTE_APROVACAO
-      |
-      +-- atleta aprova --> APROVADO
-      |
-      +-- atleta reprova -> CANCELADO
+        |
+        +-- atleta aprova --> APROVADO
+        |
+        +-- atleta reprova -> CANCELADO
 ```
+
+Consequências:
+
+- resultado `CLASSIFICADO` só gera pontos depois da aprovação do atleta;
+- resultado `DESCLASSIFICADO` só pode aplicar penalidade da temporada depois da aprovação do atleta;
+- resultado `AUSENTE` só pode aplicar penalidade da temporada depois da aprovação do atleta;
+- enquanto estiver `PENDENTE_APROVACAO`, nenhuma das três situações altera pontuação ou ranking;
+- reprovação do atleta cancela o lançamento independentemente da situação esportiva;
+- eventual novo lançamento após reprovação segue novamente o fluxo completo de aprovação.
+
+O atleta aprova o **resultado informado**, incluindo sua `situacaoResultado`. A aprovação não representa concordância com a regra de pontuação da temporada; a penalidade é calculada posteriormente segundo a configuração da temporada aplicável.
 
 ## Validade esportiva
 
@@ -311,11 +330,13 @@ O mesmo resultado pode:
 - `CLASSIFICADO` exige `colocacao > 0`.
 - `DESCLASSIFICADO` e `AUSENTE` exigem colocação nula.
 - Desclassificação e ausência são conceitos distintos.
-- Todo novo lançamento nasce `PENDENTE_APROVACAO`.
+- Todo novo lançamento nasce `PENDENTE_APROVACAO`, independentemente da situação esportiva.
+- `CLASSIFICADO`, `DESCLASSIFICADO` e `AUSENTE` seguem o mesmo fluxo de aprovação/reprovação pelo atleta.
 - Somente `APROVADO` produz efeito esportivo.
 - Resultado desclassificado ou ausente aprovado pode gerar penalidade da temporada.
 - Penalidade não é persistida no resultado.
 - Enquanto pendente, qualquer profissional com vínculo ativo com o atleta pode editar.
+- Alterar `situacaoResultado` invalida a versão apresentada anteriormente ao atleta e incrementa `nrVersao`.
 - Edição relevante incrementa `nrVersao`.
 - `nrVersao` e `lockVersion` permanecem separados.
 - Após `APROVADO`, profissionais não editam pelo fluxo ordinário.
