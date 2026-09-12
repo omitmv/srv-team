@@ -71,13 +71,21 @@ Profissional com `ADMINISTRACAO` pode, respeitando as demais regras do ciclo de 
 - incluir outros profissionais na temporada;
 - remover outros profissionais da temporada;
 - definir ou alterar permissões `ADMINISTRACAO` e `CONSULTA`;
-- executar operações administrativas autorizadas sobre inscrições, resultados e demais fluxos relacionados à temporada.
+- auxiliar o criador nos lançamentos e operações administrativas da temporada referentes aos atletas que pertencem à temporada.
 
-Administrador convidado possui, no MVP, os mesmos poderes administrativos ordinários do criador, exceto operações que dependam explicitamente da condição de criador segundo outra regra de negócio.
+Administrador convidado possui, no MVP, os mesmos poderes administrativos ordinários do criador sobre a operação da temporada, exceto operações que dependam explicitamente da condição de criador segundo outra regra de negócio.
+
+A permissão administrativa sobre a temporada não cria `VinculoProfissionalAtleta` e não concede ao administrador relação profissional permanente com os atletas do criador fora do contexto daquela temporada.
 
 ### CONSULTA
 
-Profissional com `CONSULTA` pode somente visualizar as informações às quais esteja autorizado no contexto da temporada.
+Profissional com `CONSULTA` pode visualizar a temporada e suas informações gerais, porém dados individualizados de atletas são limitados aos atletas da temporada com os quais esse profissional também possua `VinculoProfissionalAtleta` ativo.
+
+Assim, um consultor:
+
+- pode consultar dados gerais da temporada permitidos ao perfil;
+- pode consultar informações individualizadas, inscrições, resultados e histórico esportivo somente dos atletas da temporada vinculados ativamente a ele;
+- não passa a visualizar dados individualizados de todos os atletas do criador apenas por possuir acesso à temporada.
 
 Não pode:
 
@@ -85,6 +93,7 @@ Não pode:
 - alterar pontuação ou penalidades;
 - vincular/desvincular campeonatos;
 - gerenciar profissionais da temporada;
+- lançar, corrigir, aprovar ou cancelar resultados em nome da administração da temporada;
 - executar operações administrativas reservadas a `ADMINISTRACAO`.
 
 ### Gestão dos acessos
@@ -100,6 +109,62 @@ Regras:
 - não existe transferência de titularidade;
 - remoções de acesso devem ser lógicas/auditáveis;
 - remover acesso de um profissional não apaga nem altera dados históricos anteriormente produzidos por ele.
+
+## Composição de atletas da temporada
+
+A composição de atletas da temporada é determinada exclusivamente pelos vínculos do criador.
+
+Um atleta somente pode fazer parte esportivamente da temporada quando possuir `VinculoProfissionalAtleta` `ATIVO` com `Temporada.cdCriador`.
+
+Vínculos do atleta com administradores ou consultores da temporada não adicionam o atleta à temporada.
+
+Exemplo:
+
+```text
+Temporada criada pelo Profissional A
+
+Atleta X -> vínculo ATIVO com A
+Atleta Y -> vínculo apenas com B, que é ADMINISTRACAO da temporada
+
+Atleta X pode integrar a temporada.
+Atleta Y não integra a temporada apenas porque B administra a temporada.
+```
+
+Portanto:
+
+- `TemporadaProfissional` controla acesso profissional à temporada;
+- `VinculoProfissionalAtleta` com o criador controla quais atletas podem compor a temporada;
+- não deve existir inclusão indireta de atletas por administradores convidados;
+- um mesmo atleta pode possuir vínculo com o criador e também com outro profissional vinculado à temporada;
+- nesse caso, o segundo vínculo afeta a visibilidade própria desse profissional, mas não a pertença do atleta à temporada.
+
+### Visibilidade e operação por tipo de acesso
+
+Para profissional com `CONSULTA`:
+
+```text
+Atleta pertence à temporada
+    E
+possui vínculo ATIVO com o consultor
+        -> pode consultar informações individualizadas desse atleta
+```
+
+Para profissional com `ADMINISTRACAO`:
+
+```text
+Atleta pertence à temporada
+        -> administrador pode operar lançamentos da temporada desse atleta
+```
+
+O administrador não precisa possuir vínculo profissional-atleta próprio com cada atleta para auxiliar o criador nas operações administrativas daquela temporada.
+
+Essa autorização é contextual:
+
+- vale apenas para a temporada em que possui `ADMINISTRACAO`;
+- não cria vínculo profissional-atleta;
+- não concede acesso administrativo ao mesmo atleta em outra temporada;
+- não concede acesso geral ao cadastro do atleta fora das informações necessárias à operação da temporada;
+- encerra-se quando o vínculo administrativo com a temporada deixa de estar ativo.
 
 ## Campeonatos
 
@@ -287,11 +352,13 @@ Não persistir pontos ou penalidade calculada como verdade autoritativa no `Resu
 
 Enquanto esportivamente utilizável, atleta integra a temporada quando:
 
-1. possui vínculo `ATIVO` com o criador;
+1. possui `VinculoProfissionalAtleta` `ATIVO` com o criador da temporada;
 2. possui inscrição confirmada e não cancelada em ao menos um campeonato associado;
 3. conta do atleta não está cancelada.
 
 Elegibilidade é derivada.
+
+Vínculo com profissional administrador ou consultor da temporada não substitui o vínculo com o criador para fins de elegibilidade.
 
 ## Ranking
 
@@ -322,8 +389,13 @@ Qualquer regra específica de ranking por categoria deve ser refinada em etapa f
 - temporada possui exatamente um criador permanente no MVP;
 - `cdCriador` é imutável;
 - não existe transferência de titularidade da temporada no MVP;
+- somente atletas com vínculo `ATIVO` com o criador podem compor a temporada;
+- vínculo de atleta com administrador ou consultor não adiciona esse atleta à temporada;
 - qualquer `ADMINISTRACAO` pode gerenciar acessos de outros profissionais;
+- administrador pode auxiliar o criador nos lançamentos dos atletas da temporada mesmo sem vínculo profissional-atleta próprio com eles;
+- a autorização do administrador sobre esses atletas é estritamente contextual à temporada;
 - `CONSULTA` não altera configuração nem composição da temporada;
+- consultor somente visualiza informações individualizadas de atletas da temporada que também estejam vinculados ativamente a ele;
 - criador não pode ser removido ou rebaixado por gerenciamento de acesso;
 - temporadas do mesmo criador podem sobrepor períodos;
 - campeonato não pertence exclusivamente à temporada;
