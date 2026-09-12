@@ -1,6 +1,6 @@
 # Refinamento técnico — vínculo profissional-atleta
 
-Status: proposta técnica derivada das regras já consolidadas em `mvp-pontuacao.md`.
+Status: decisões de negócio consolidadas para o MVP; refinamento de implementação pendente.
 
 ## Objetivo
 
@@ -52,7 +52,8 @@ A origem deve permitir distinguir, no mínimo:
 - cadastro direto de novo atleta por profissional;
 - pré-cadastro iniciado pelo atleta e liberado pelo profissional responsável;
 - solicitação manual iniciada pelo atleta;
-- solicitação manual iniciada pelo profissional.
+- solicitação manual iniciada pelo profissional;
+- intervenção administrativa do proprietário.
 
 Sugestão de enum:
 
@@ -60,6 +61,7 @@ Sugestão de enum:
 - `PRE_CADASTRO_ATLETA`
 - `SOLICITACAO_ATLETA`
 - `SOLICITACAO_PROFISSIONAL`
+- `ADMINISTRATIVO`
 
 ## Regras de criação
 
@@ -74,6 +76,10 @@ A liberação da conta pelo profissional responsável cria o vínculo diretament
 ### Solicitação envolvendo atleta já cadastrado
 
 O vínculo nasce como `PENDENTE` e depende da aprovação do destinatário.
+
+### Intervenção administrativa
+
+O proprietário pode criar ou ativar diretamente um vínculo por ação administrativa. A origem deve ser registrada como `ADMINISTRATIVO`, preservando auditoria da ação.
 
 ## Regras de duplicidade
 
@@ -91,10 +97,18 @@ O vínculo nasce como `PENDENTE` e depende da aprovação do destinatário.
 
 ## Encerramento
 
+- Atleta e profissional podem encerrar unilateralmente um vínculo ativo, sem aprovação da outra parte.
 - Justificativa obrigatória.
 - Encerrar vínculo não cancela conta, inscrição ou resultado.
 - O encerramento afeta apenas autorizações futuras dependentes daquele vínculo.
 - O histórico deve ser preservado.
+- O encerramento deve registrar quem executou a ação e a data correspondente.
+
+## Solicitações pendentes
+
+Solicitações `PENDENTE` não expiram automaticamente no MVP. Permanecem abertas até uma decisão explícita de aprovação, reprovação ou cancelamento.
+
+Essa decisão evita introduzir scheduler, política de validade e regras adicionais de notificação sem necessidade funcional imediata.
 
 ## Elegibilidade de usuários
 
@@ -103,6 +117,14 @@ O vínculo nasce como `PENDENTE` e depende da aprovação do destinatário.
 `cdProfissional` deve apontar para perfil elegível como profissional. No modelo atual, os perfis explicitamente profissionais são `NUTRITIONISTA`, `TREINADOR` e `COACH`.
 
 Não inferir profissional apenas por exclusão de `ATLETA`, pois existem outros perfis (`ADMINISTRADOR`, `FUNCIONARIO`) que não representam necessariamente atendimento profissional.
+
+### Separação entre papel de negócio e permissão administrativa
+
+`ADMINISTRADOR` não deve ser utilizado como substituto de um papel profissional de atendimento.
+
+Administração representa permissão/contexto de acesso, enquanto `NUTRITIONISTA`, `TREINADOR` e `COACH` representam papéis de negócio.
+
+No refinamento de implementação, deve-se evitar modelagem que force um usuário a perder seu papel profissional apenas porque recebeu permissão administrativa. Caso a estrutura atual de `cdTpAcesso` único impeça essa composição, deverá ser evoluída para separar perfil profissional de permissões administrativas.
 
 ## Índices e restrições recomendados
 
@@ -120,9 +142,9 @@ A existência de vínculo `ATIVO` é condição necessária para operações que
 
 Pertencer ao mesmo `Time` não cria vínculo profissional-atleta automaticamente.
 
-## Pontos ainda a fechar
+## Decisões fechadas
 
-1. Se `ADMINISTRADOR` também pode atuar simultaneamente como profissional de atendimento ou se o tipo de acesso deve permanecer exclusivo.
-2. Se o proprietário pode criar/ativar vínculo diretamente por ação administrativa.
-3. Se o encerramento pode ser solicitado unilateralmente por atleta e profissional ou se algum caso exige aprovação.
-4. Se haverá expiração automática de solicitações `PENDENTE`.
+1. Administração é permissão/contexto e não substitui o papel profissional de atendimento.
+2. O proprietário pode criar ou ativar vínculo diretamente por ação administrativa, com origem auditável.
+3. Atleta e profissional podem encerrar unilateralmente o vínculo, com justificativa obrigatória.
+4. Solicitações pendentes não expiram automaticamente no MVP.
