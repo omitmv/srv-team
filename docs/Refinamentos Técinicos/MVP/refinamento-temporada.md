@@ -6,9 +6,7 @@ Status: decisões de negócio consolidadas para o MVP; refinamento técnico em a
 
 Modelar a `Temporada` como contexto no qual campeonatos compartilhados são selecionados, resultados aprovados são convertidos em pontos e rankings são calculados segundo regras próprias da temporada.
 
-## Situação atual do código
-
-Na branch `release` não existe entidade Java `Temporada`. O modelo atual possui entidades anteriores de competição/pontuação, que não devem ser simplesmente reutilizadas como representação da nova regra sem adequação ao domínio refinado.
+O ranking não deve ser persistido inicialmente como fonte autoritativa. Ele é resultado de cálculo.
 
 ## Papel da Temporada no domínio
 
@@ -35,8 +33,6 @@ Os pontos não pertencem universalmente ao campeonato. O mesmo resultado pode pr
 
 ## Entidade principal proposta
 
-`Temporada`
-
 Campos conceituais:
 
 - `cdTemporada`
@@ -46,9 +42,9 @@ Campos conceituais:
 - `dtEncerramento`
 - `status`
 - `dtCadastro`
+- `dtCancelamento`
+- `cdResponsavelCancelamento`
 - campos de auditoria
-
-Não criar campo genérico `criterios` no MVP. Critérios devem existir apenas quando possuírem semântica de negócio explícita.
 
 `dsNome` é obrigatório, livre e deve possuir limite de tamanho. Não usar ano como identidade exclusiva da temporada.
 
@@ -64,9 +60,7 @@ Não criar campo genérico `criterios` no MVP. Critérios devem existir apenas q
 
 ## Estado da temporada
 
-O estado representa principalmente o ciclo administrativo, não um snapshot esportivo imutável.
-
-Estados recomendados:
+Estados do MVP:
 
 - `RASCUNHO`
 - `ATIVA`
@@ -85,19 +79,105 @@ Permite operação ordinária conforme as permissões do usuário.
 
 - bloqueia alterações ordinárias de configuração para criador e administradores convidados;
 - continua disponível para consulta conforme autorização;
-- continua sujeita a recálculos derivados decorrentes de alterações externas permitidas pelo domínio, como vínculo, conta do atleta e intervenções administrativas;
+- continua sujeita a recálculos derivados decorrentes de alterações externas permitidas pelo domínio;
 - não representa congelamento do ranking;
 - o proprietário pode intervir administrativamente e, quando necessário, reabrir a temporada.
 
 ### CANCELADA
 
-Representa cancelamento lógico. A temporada e seu histórico não devem ser removidos quando já utilizados.
+`CANCELADA` é um estado terminal.
+
+O cancelamento:
+
+- é exclusivamente lógico;
+- preserva integralmente a temporada e seu histórico;
+- não exclui campeonatos, inscrições ou resultados;
+- não cancela nem altera os `Resultado` lançados nos campeonatos que estavam associados à temporada;
+- encerra a utilização daquela identidade de temporada;
+- não permite reativação;
+- não permite transição de `CANCELADA` para `RASCUNHO`, `ATIVA` ou `ENCERRADA`.
+
+Se o profissional desejar voltar a trabalhar com uma configuração equivalente, deverá criar uma **nova `Temporada`**, que receberá um novo `cdTemporada`.
+
+Mesmo que nome, período, campeonatos, permissões ou tabela de pontos sejam reproduzidos, a nova temporada é uma identidade de domínio distinta e não uma reativação da anterior.
+
+Fluxo:
+
+```text
+Temporada #10
+ATIVA
+  |
+  | cancelamento
+  v
+CANCELADA [terminal]
+
+Nova necessidade
+  |
+  v
+Temporada #25
+nova identidade
+```
+
+## Quem pode cancelar
+
+O cancelamento pode ser realizado por profissional com permissão de `ADMINISTRACAO` sobre a temporada, incluindo:
+
+- o criador da temporada;
+- administrador convidado com permissão administrativa vigente.
+
+O proprietário mantém sua autoridade administrativa global.
+
+A autorização deve ser validada no momento da operação.
+
+Permissão apenas de `CONSULTA` não permite cancelamento.
+
+O cancelamento deve registrar no mínimo:
+
+- responsável pela operação;
+- data/hora do cancelamento;
+- estado anterior;
+- auditoria correspondente.
+
+## Efeito sobre resultados
+
+A temporada é apenas um contexto que interpreta resultados de campeonatos para produzir pontuação e ranking.
+
+Por isso, cancelar uma temporada **não cancela resultados**.
+
+Os `Resultado` pertencem ao ciclo de `Inscricao` no campeonato e preservam seu próprio ciclo de vida independentemente da temporada.
+
+Assim:
+
+```text
+Resultado APROVADO
+       |
+       +---- Temporada A ATIVA      -> pode gerar pontos em A
+       |
+       +---- Temporada B ATIVA      -> pode gerar pontos em B
+       |
+       +---- Temporada C CANCELADA  -> resultado continua existindo
+```
+
+O cancelamento de C não modifica o `status` do resultado e não interfere em sua utilização por outras temporadas elegíveis.
+
+Também não cancelar automaticamente:
+
+- `Inscricao`;
+- `VinculoProfissionalAtleta`;
+- `Competicao`/Campeonato;
+- `Categoria`;
+- `Classe`.
 
 ## Exclusão
 
-Não permitir exclusão física de temporada que já possua qualquer elemento relevante associado, incluindo campeonatos, permissões, tabela de pontos ou participação calculável.
+Não utilizar exclusão física como operação funcional de cancelamento.
 
-Utilizar cancelamento lógico para preservar integridade referencial e auditoria.
+Uma temporada cancelada permanece persistida para:
+
+- integridade referencial;
+- auditoria;
+- histórico administrativo;
+- rastreabilidade dos campeonatos e configurações que estavam associados.
 
 ## Criador
 
@@ -129,9 +209,9 @@ Tipos mínimos:
 
 O criador não precisa necessariamente de registro redundante nessa associação, pois sua autoridade deriva da própria temporada.
 
-Uma permissão de `ADMINISTRACAO` implica capacidade de consulta da temporada.
+Uma permissão de `ADMINISTRACAO` implica capacidade de consulta da temporada e permite o cancelamento enquanto a temporada ainda não estiver `CANCELADA`.
 
-Uma permissão de `CONSULTA` não concede administração, aprovação de inscrição ou operação de resultados por si só.
+Uma permissão de `CONSULTA` não concede administração, aprovação de inscrição, operação de resultados ou cancelamento da temporada por si só.
 
 ## Campeonatos da temporada
 
@@ -160,21 +240,12 @@ Invariantes:
 - remover associação recalcula o ranking;
 - remover associação não cancela nem exclui campeonato, inscrições ou resultados;
 - durante `RASCUNHO` ou `ATIVA`, criador e administradores autorizados podem alterar a composição;
-- em `ENCERRADA`, alterações ordinárias de composição ficam bloqueadas, salvo intervenção administrativa do proprietário.
+- em `ENCERRADA`, alterações ordinárias de composição ficam bloqueadas, salvo intervenção administrativa do proprietário;
+- em `CANCELADA`, a composição fica preservada apenas para histórico e não pode voltar à operação ordinária.
 
 ## Tabela de pontos
 
-### Incompatibilidade com o modelo atual
-
-A entidade atual `Pontuacao` está ligada diretamente a `cdCompeticao`. Essa semântica não atende o domínio consolidado do MVP.
-
 A tabela de pontos pertence à temporada, não ao campeonato.
-
-Um campeonato fornece colocações/resultados. A conversão da colocação em pontos acontece no contexto de cada temporada elegível.
-
-Portanto, `tbPontuacao` não deve permanecer como tabela universal por competição.
-
-### Nova semântica proposta
 
 Criar entidade conceitual `TemporadaPontuacao`:
 
@@ -185,97 +256,49 @@ Criar entidade conceitual `TemporadaPontuacao`:
 - `pontuacao`
 - campos de auditoria
 
-Tipos de classe para pontuação no MVP:
+Tipos de classe:
 
 - `COMUM`
 - `OVERALL`
 
-`tipoClasse` deve ser obtido da própria entidade `Classe` usada no resultado, e não inferido pelo nome ou informado livremente no lançamento.
+A categoria não participa da chave da tabela de pontos.
 
-A categoria esportiva não participa da chave da tabela de pontos. Para uma mesma temporada, posição e tipo de classe, a pontuação é igual em todas as categorias.
-
-### Domínio numérico consolidado
+### Domínio numérico
 
 - utilizar `BigDecimal`;
 - `precision = 10`;
 - `scale = 3`;
-- `pontuacao` obrigatória e nunca `null`;
+- `pontuacao` obrigatória;
 - permitir `0`;
-- não permitir valor negativo no MVP;
-- `posicao` deve ser maior que zero;
+- não permitir negativo;
+- `posicao > 0`;
 - colocação sem regra cadastrada vale `0` ponto;
-- quando alguma operação matemática exigir arredondamento para a escala persistida/apresentada, utilizar `RoundingMode.HALF_UP`.
+- quando necessário arredondar, utilizar `RoundingMode.HALF_UP`.
 
-A regra de pontuação atual é soma de valores já definidos na tabela; portanto, o arredondamento não deve ser aplicado desnecessariamente a cada etapa intermediária. Preservar `BigDecimal` durante agregações.
-
-### Invariantes da tabela
+### Invariantes
 
 - unicidade lógica em `(cdTemporada, posicao, tipoClasse)`;
-- `posicao` deve ser positiva;
-- não permitir duas regras conflitantes para a mesma combinação;
-- colocação sem regra cadastrada vale `0` ponto;
-- alterações na tabela recalculam rankings, inclusive de resultados anteriores;
-- a pontuação calculada não deve ser persistida como valor histórico autoritativo por resultado;
-- valores negativos não são aceitos no MVP.
-
-## Relação entre Campeonato e Pontuação
-
-Não existe relação direta de propriedade:
-
-```text
-Campeonato
-   │
-   └── Resultado: atleta + categoria + classe + colocação
-
-Temporada
-   ├── associa Campeonato
-   └── possui Tabela de Pontos
-
-Resultado aprovado
-   + Temporada elegível
-   + tipo da classe
-   + colocação
-   ─────────────────────
-          Pontos calculados
-```
-
-O mesmo resultado aprovado pode gerar valores diferentes em temporadas distintas.
+- não permitir regras conflitantes;
+- alterações na tabela recalculam rankings quando a temporada estiver em estado que participe das consultas esportivas;
+- pontuação calculada não é persistida como valor histórico autoritativo por resultado.
 
 ## Elegibilidade do atleta
 
-O atleta integra uma temporada somente quando todas as condições vigentes forem satisfeitas:
+Enquanto a temporada estiver esportivamente utilizável, o atleta integra a temporada quando:
 
-1. possui vínculo profissional-atleta `ATIVO` com o criador da temporada;
-2. possui inscrição confirmada e não cancelada em pelo menos um campeonato associado à temporada;
+1. possui vínculo `ATIVO` com o criador;
+2. possui inscrição confirmada e não cancelada em pelo menos um campeonato associado;
 3. sua conta não está cancelada.
 
-A elegibilidade deve ser calculada a partir do estado atual do domínio, não armazenada como flag permanente na temporada.
-
-Consequências:
-
-- novo vínculo pode tornar resultados anteriores elegíveis;
-- encerramento do vínculo pode retirar o atleta de rankings inclusive de temporada encerrada;
-- cancelamento da conta retira temporariamente o atleta dos rankings;
-- reativação pode reinseri-lo;
-- adicionar/remover campeonato pode alterar o conjunto de atletas elegíveis.
+A elegibilidade é derivada e não uma flag permanente.
 
 ## Ranking
 
-O ranking é dado derivado.
+O ranking é dado derivado, conforme `refinamento-ranking.md`.
 
-Não criar inicialmente uma entidade `Ranking` como fonte de verdade sem necessidade comprovada de materialização/cache.
+Não criar entidade `Ranking` autoritativa no MVP.
 
-A fonte de verdade deve permanecer nas entidades de domínio:
-
-- temporada;
-- campeonatos associados;
-- tabela de pontos;
-- vínculos ativos;
-- inscrições confirmadas;
-- resultados aprovados e não cancelados;
-- situação da conta do atleta.
-
-Caso performance exija materialização posterior, tratar como projeção/cache recalculável, e não como origem autoritativa do dado.
+O cancelamento da temporada não altera as entidades esportivas que serviram de origem ao ranking. A política de exibição/consulta histórica de uma temporada `CANCELADA` deve respeitar o estado administrativo sem apagar ou reescrever resultados.
 
 ## Invariantes consolidadas
 
@@ -289,14 +312,11 @@ Caso performance exija materialização posterior, tratar como projeção/cache 
 - tabela não pode possuir duas regras conflitantes para a mesma combinação de posição e tipo de classe;
 - pontuação usa `BigDecimal(10,3)`, aceita zero e rejeita negativos;
 - `posicao > 0`;
-- classe determina explicitamente `COMUM` ou `OVERALL`;
 - rankings são derivados das regras vigentes;
-- encerramento temporal da temporada não congela automaticamente rankings;
-- temporada utilizada não deve sofrer exclusão física;
-- não existe campo genérico `criterios` enquanto não houver regra concreta que o justifique.
-
-## Próximos pontos de refinamento
-
-1. Refinar catálogo de categoria/classe e suas regras de inativação, unicidade e identificação explícita de `OVERALL`.
-2. Refinar migração/aposentadoria da atual `tbPontuacao` e de `tbPontuacaoHist` para as novas entidades do domínio.
-3. Refinar `Inscricao` e `Resultado`, que são as próximas fontes autoritativas necessárias para o cálculo do ranking.
+- `CANCELADA` é estado terminal;
+- temporada cancelada não pode ser reativada;
+- recriação exige nova temporada e novo `cdTemporada`;
+- cancelamento é lógico e não remove histórico;
+- criador ou administrador da temporada pode cancelar;
+- cancelamento da temporada não cancela resultados, inscrições, campeonatos ou vínculos;
+- temporada cancelada não deve sofrer exclusão física.
