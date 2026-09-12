@@ -1,43 +1,28 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica em andamento; regras já confirmadas e decisões abertas identificadas abaixo.
+Status: modelagem técnica em andamento; regras de criação, alteração e autorização de cancelamento consolidadas; efeitos esportivos do cancelamento ainda pendentes.
 
 ## Objetivo
 
-Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, independente de propriedade exclusiva de uma temporada, e substituir o uso de organizador/federação como texto livre por referência a um catálogo central de `Organizador` administrado pelo proprietário.
+Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas, independente de propriedade exclusiva de uma temporada, e substituir organizador/federação como texto livre por referência a catálogo central de `Organizador` administrado pelo proprietário.
 
-## Regras já confirmadas pelo MVP
+## Regras confirmadas
 
 - `Organizador` pertence a catálogo central administrado exclusivamente pelo proprietário.
 - O profissional pode criar campeonato.
 - Todo campeonato deve possuir organizador selecionado do catálogo central.
-- Campeonato criado por um profissional passa a integrar o catálogo compartilhado e pode ser usado por outros profissionais.
+- Campeonato criado por profissional integra o catálogo compartilhado.
 - Campeonato não pertence exclusivamente a uma temporada.
-- A associação campeonato-temporada é N:N e já está modelada conceitualmente por `TemporadaCampeonato`.
+- Associação campeonato-temporada é N:N via `TemporadaCampeonato`.
 - Profissionais não editam diretamente campeonato existente.
-- Alterações em campeonato existente são solicitadas ao proprietário.
-- O proprietário aprova ou rejeita a solicitação.
-- Quando aprovada, a alteração modifica o cadastro compartilhado e, portanto, é refletida para todas as temporadas que utilizam aquele campeonato.
-- Categoria e classe não fazem parte da composição prévia do campeonato. São informadas no lançamento de `Resultado`.
-
-## Situação atual do código
-
-A entidade atual `Competicao` possui:
-
-- `cdCompeticao`;
-- `nmCompeticao`;
-- `dtInicio`;
-- `dtFim`;
-- `local`;
-- `federacao` como texto livre.
-
-Esse desenho não atende integralmente ao domínio consolidado porque o MVP exige um `Organizador` pertencente a catálogo central e selecionado obrigatoriamente no campeonato.
-
-A evolução recomendada é manter a identidade técnica atual (`cdCompeticao`) caso isso reduza impacto de migração, mas adotar conceitualmente o nome de domínio `Campeonato` na arquitetura, ou planejar renomeação posterior se o custo for aceitável.
+- Alterações são solicitadas ao proprietário.
+- Somente o proprietário pode efetivamente cancelar um campeonato.
+- Um profissional pode solicitar o cancelamento, obrigatoriamente mediante justificativa.
+- Categoria e classe são informadas no `Resultado`, não pré-configuradas no campeonato.
 
 ## Organizador
 
-### Entidade conceitual
+Entidade conceitual:
 
 ```text
 Organizador
@@ -47,146 +32,54 @@ Organizador
  └── auditoria
 ```
 
-Campos mínimos recomendados para o MVP:
+Somente o proprietário pode criar, editar, inativar ou reativar organizador.
 
-- `cdOrganizador`;
-- `dsNome` obrigatório;
-- `flAtivo`;
-- campos de auditoria.
+Organizador já utilizado não deve ser fisicamente excluído. Inativação preserva campeonatos históricos e impede seleção em novos campeonatos.
 
-Não incluir dados fiscais, contatos ou endereço no MVP sem requisito explícito.
-
-### Administração
-
-Somente o proprietário pode:
-
-- criar organizador;
-- editar organizador;
-- inativar organizador;
-- reativar organizador.
-
-Profissionais apenas selecionam organizadores ativos ao criar campeonato.
-
-### Inativação
-
-Organizador já utilizado por campeonato não deve ser fisicamente excluído.
-
-Ao ser inativado:
-
-- permanece associado aos campeonatos históricos existentes;
-- não aparece para criação de novos campeonatos;
-- não invalida campeonatos já cadastrados;
-- não altera inscrições, resultados, temporadas ou rankings existentes.
-
-### Unicidade
-
-Recomendação: impedir dois organizadores ativos semanticamente equivalentes pelo nome normalizado.
-
-A normalização deve ignorar pelo menos:
-
-- espaços externos irrelevantes;
-- diferenças de caixa.
-
-A estratégia exata de unicidade deve respeitar o comportamento de collation do MySQL.
+Recomendação de unicidade: impedir dois organizadores ativos semanticamente equivalentes pelo nome normalizado, respeitando collation do MySQL.
 
 ## Campeonato
 
-### Entidade conceitual
+Entidade conceitual:
 
 ```text
 Campeonato
- ├── cdCampeonato
+ ├── cdCampeonato/cdCompeticao
  ├── dsNome
  ├── cdOrganizador
  ├── dtInicio
  ├── dtFim
  ├── dsLocal
- ├── status/flAtivo
+ ├── status
  ├── cdCriador
  └── auditoria
 ```
 
-### Identidade e compatibilidade
+Para reduzir impacto de migração, pode ser mantida a identidade física atual `cdCompeticao`/`tbCompeticao`, tratando semanticamente a entidade como Campeonato.
 
-No código atual, a identidade é `cdCompeticao`.
+O campo legado `federacao` não deve permanecer como fonte autoritativa. `Campeonato` referencia `Organizador` por identidade.
 
-Para minimizar impacto no MVP, é aceitável manter o nome físico/técnico `cdCompeticao` e `tbCompeticao`, desde que o domínio e os novos serviços tratem a entidade semanticamente como `Campeonato`.
+## Criação
 
-Renomeação física de tabela/PK não é requisito funcional e pode ser adiada para evitar migração cosmética.
-
-### Campos recomendados
-
-- identidade própria;
-- nome obrigatório;
-- organizador obrigatório;
-- data inicial obrigatória;
-- data final obrigatória;
-- local opcional;
-- criador do cadastro;
-- indicador de ativo/cancelado conforme decisão a fechar;
-- auditoria.
-
-### Organizador obrigatório
-
-`Campeonato` deve referenciar `Organizador` por identidade:
-
-```text
-Campeonato N ---- 1 Organizador
-```
-
-Não manter `federacao` como fonte autoritativa de texto livre.
-
-Em eventual migração, os valores distintos existentes em `Competicao.federacao` devem ser analisados para criação/deduplicação de registros de `Organizador`, quando houver dados legados reais.
-
-## Criação por profissional
-
-Um profissional autorizado pode criar campeonato diretamente, sem aprovação prévia do proprietário.
+Profissional autorizado pode criar campeonato diretamente, sem aprovação prévia do proprietário.
 
 Na criação:
 
-1. informa os dados do campeonato;
-2. seleciona um organizador ativo do catálogo;
-3. o sistema valida os campos e possível duplicidade;
-4. cria o campeonato no catálogo compartilhado;
-5. o campeonato fica disponível para associação a temporadas por outros usuários autorizados.
+1. informa dados;
+2. seleciona organizador ativo;
+3. sistema valida campos e duplicidade;
+4. campeonato é criado no catálogo compartilhado;
+5. fica disponível para associação a temporadas.
 
-O usuário criador do campeonato não se torna proprietário exclusivo do registro.
+`cdCriador` é informação de auditoria, não propriedade exclusiva do registro.
 
-`cdCriador` deve ser preservado para auditoria e rastreabilidade, não para restringir reutilização por outros profissionais.
+## Alteração
 
-## Catálogo compartilhado
+Profissionais não alteram diretamente campeonato existente.
 
-Todos os campeonatos válidos pertencem ao mesmo catálogo compartilhado.
+Deve existir solicitação encaminhada ao proprietário.
 
-Consequências:
-
-- um campeonato pode participar de várias temporadas;
-- profissionais diferentes podem associar o mesmo campeonato às suas temporadas;
-- inscrição é feita no campeonato, não na temporada;
-- resultado pertence à inscrição do campeonato;
-- pontuação do mesmo resultado varia conforme cada temporada elegível.
-
-Não duplicar campeonato para cada temporada.
-
-## Associação com temporada
-
-A associação permanece responsabilidade de `TemporadaCampeonato`.
-
-```text
-Temporada N ---- N Campeonato
-```
-
-O campeonato não deve possuir `cdTemporada` diretamente.
-
-Adicionar/remover associação com temporada não altera o cadastro compartilhado do campeonato.
-
-## Alteração de campeonato
-
-Profissionais não alteram diretamente um campeonato já existente.
-
-Deve existir uma solicitação explícita de alteração encaminhada ao proprietário.
-
-### Entidade conceitual recomendada
+Estrutura conceitual:
 
 ```text
 SolicitacaoAlteracaoCampeonato
@@ -204,179 +97,183 @@ SolicitacaoAlteracaoCampeonato
 
 Status mínimos:
 
-- `PENDENTE`;
-- `APROVADA`;
-- `REPROVADA`.
+- `PENDENTE`
+- `APROVADA`
+- `REPROVADA`
 
-### Dados propostos
+Ao aprovar, revalidar estado/versionamento, aplicar valores aprovados e preservar antes/depois. Ao reprovar, manter campeonato inalterado e registrar decisão.
 
-Evitar persistir apenas uma descrição textual da mudança.
+Recomendação: no máximo uma solicitação de alteração `PENDENTE` por campeonato.
 
-A solicitação deve permitir reconstruir claramente:
+## Cancelamento de campeonato
 
-- estado atual do campeonato no momento da solicitação;
-- valores propostos;
-- campos alterados.
+### Autoridade
 
-Implementações possíveis:
+O cancelamento efetivo é uma operação exclusiva do **proprietário do sistema**.
 
-- snapshot estruturado JSON do antes/depois; ou
-- entidade com campos propostos explicitamente.
+Nenhum profissional, inclusive:
 
-Para o MVP, JSON estruturado pode reduzir complexidade, desde que validado e auditável. A camada de domínio não deve aplicar diretamente conteúdo arbitrário sem validação campo a campo.
+- criador do campeonato;
+- criador de temporada que o utiliza;
+- administrador de temporada;
 
-### Aprovação
+pode executar diretamente a transição do campeonato para `CANCELADO`.
 
-Ao aprovar:
+O proprietário pode realizar o cancelamento administrativo diretamente, sujeito à auditoria.
 
-1. revalidar o estado atual do campeonato;
-2. detectar se o cadastro foi alterado desde a solicitação;
-3. aplicar os valores aprovados;
-4. registrar responsável e data;
-5. preservar histórico do antes/depois;
-6. marcar solicitação como `APROVADA`.
+### Solicitação por profissional
 
-Como o cadastro é compartilhado, a alteração aprovada passa a valer para todas as temporadas que referenciam o campeonato.
+Um profissional pode solicitar o cancelamento de um campeonato.
 
-### Reprovação
+A solicitação exige **justificativa obrigatória**.
 
-Ao reprovar:
+Fluxo:
 
-- manter campeonato inalterado;
-- marcar solicitação como `REPROVADA`;
-- registrar responsável e data;
-- registrar justificativa/motivo da reprovação;
-- preservar histórico.
+```text
+Profissional
+    |
+    | solicita cancelamento + justificativa
+    v
+PENDENTE
+    |
+    v
+Proprietário analisa
+    |
+    +-- aprova  -> Campeonato CANCELADO
+    |
+    +-- reprova -> Campeonato permanece inalterado
+```
 
-## Concorrência nas solicitações
+### Entidade conceitual
 
-Recomendação para o MVP: permitir no máximo uma solicitação `PENDENTE` por campeonato por vez.
+Recomenda-se separar a solicitação de cancelamento da solicitação de alteração para preservar semântica explícita:
 
-Motivo: múltiplas propostas paralelas sobre o mesmo cadastro criariam conflitos de merge e decisões baseadas em estados diferentes.
+```text
+SolicitacaoCancelamentoCampeonato
+ ├── cdSolicitacao
+ ├── cdCampeonato
+ ├── cdSolicitante
+ ├── justificativa
+ ├── status
+ ├── dtSolicitacao
+ ├── cdResponsavelDecisao
+ ├── dtDecisao
+ └── motivoReprovacao
+```
 
-Se já houver solicitação pendente, uma nova tentativa deve ser bloqueada ou direcionar o usuário à pendência existente.
+Status:
 
-A aprovação deve ainda validar se a versão do campeonato usada como base continua atual.
+- `PENDENTE`
+- `APROVADA`
+- `REPROVADA`
 
-Recomendação técnica: `@Version` em `Campeonato` para optimistic locking e registro da versão base na solicitação.
+`justificativa` é obrigatória na criação da solicitação.
+
+Quando aprovada:
+
+1. registrar proprietário responsável pela decisão;
+2. registrar data/hora;
+3. marcar solicitação `APROVADA`;
+4. realizar cancelamento lógico do campeonato;
+5. preservar campeonato e todas as referências históricas.
+
+Quando reprovada:
+
+1. campeonato permanece inalterado;
+2. solicitação fica `REPROVADA`;
+3. responsável e data são registrados;
+4. registrar motivo da reprovação para auditoria.
+
+### Concorrência e duplicidade de solicitação
+
+Recomendação para o MVP: permitir no máximo uma `SolicitacaoCancelamentoCampeonato` `PENDENTE` por campeonato.
+
+Se já existir uma pendência, nova solicitação não deve criar outro registro concorrente. O usuário deve ser direcionado à solicitação existente.
+
+A existência de solicitação pendente não altera o estado do campeonato antes da decisão do proprietário.
+
+### Cancelamento lógico
+
+Campeonato utilizado não deve ser fisicamente excluído.
+
+O cancelamento preserva:
+
+- identidade do campeonato;
+- associações históricas com temporadas;
+- inscrições;
+- resultados;
+- solicitações de alteração/cancelamento;
+- auditoria.
+
+O estado `CANCELADO` deve ser explícito, em vez de depender de `flAtivo` ambíguo.
+
+Após cancelamento, o campeonato não deve aceitar novas associações ordinárias com temporadas nem novas inscrições.
+
+Os efeitos sobre inscrições já existentes, resultados aprovados e rankings permanecem decisão de produto específica a fechar.
 
 ## Auditoria
 
-Histórico do campeonato deve permitir identificar:
-
-- quem criou;
-- quando criou;
-- valores originais;
-- solicitações de alteração;
-- quem solicitou;
-- valores propostos;
-- quem aprovou/reprovou;
-- justificativas;
-- alterações administrativas diretas do proprietário, se permitidas;
-- valores antes/depois.
+Histórico deve permitir identificar criação, alterações solicitadas, cancelamentos solicitados, justificativas, decisões, responsáveis, datas e valores antes/depois quando aplicável.
 
 ## Categorias e classes
 
-Campeonato não mantém coleção configurada de categorias/classes participantes.
+Campeonato não mantém coleção pré-configurada de categorias/classes. A combinação é registrada em `Resultado`.
 
-A combinação utilizada é registrada em `Resultado`.
+Não criar no MVP `CampeonatoCategoria` ou `CampeonatoClasse`.
 
-Portanto, não criar no MVP entidades como:
+## Duplicidade
 
-- `CampeonatoCategoria`;
-- `CampeonatoClasse`.
-
-Essa decisão evita configuração antecipada obrigatória e segue a regra já consolidada de que categoria/classe são selecionadas no lançamento do resultado.
-
-## Efeitos sobre inscrições e resultados
-
-Alterar dados cadastrais do campeonato não cria novo campeonato nem altera sua identidade.
-
-Inscrições e resultados continuam vinculados ao mesmo `cdCampeonato`/`cdCompeticao`.
-
-Mudanças em nome, local ou organizador não devem reatribuir inscrições nem resultados.
-
-Mudança de datas pode afetar apresentação e regras futuras, mas não deve apagar ou recriar inscrições/resultados existentes.
-
-Os efeitos exatos de alterações sensíveis após já existirem inscrições/resultados permanecem como decisão de produto a fechar.
-
-## Duplicidade de campeonatos
-
-O catálogo compartilhado precisa de proteção contra duplicação acidental, mas nome isolado não é suficiente para definir identidade esportiva.
-
-Exemplos possíveis:
-
-```text
-Mr Rio 2026 — 27/06/2026 — Organizador X
-Mr Rio 2027 — 26/06/2027 — Organizador X
-```
-
-São campeonatos distintos apesar do mesmo nome.
-
-Recomendação inicial de chave semântica para detecção de possível duplicidade:
+Recomendação de chave semântica para criação:
 
 ```text
 (nome normalizado, cdOrganizador, dtInicio)
 ```
 
-Essa combinação deve inicialmente gerar validação/alerta forte. A decisão entre bloqueio absoluto ou confirmação administrativa permanece aberta.
+Recomendação: bloquear duplicidade exata na criação ordinária; exceções somente por intervenção do proprietário.
 
-## Remoção / cancelamento de campeonato
-
-Não excluir fisicamente campeonato que já possua qualquer uma destas referências:
-
-- associação com temporada;
-- inscrição;
-- resultado;
-- histórico de solicitação.
-
-O MVP deve preferir estado lógico.
-
-A semântica exata entre `INATIVO` e `CANCELADO`, bem como os efeitos sobre ranking e inscrições, ainda deve ser consolidada antes da implementação.
-
-## Invariantes já consolidadas
+## Invariantes consolidadas
 
 - Organizador é catálogo central administrado pelo proprietário.
 - Campeonato exige organizador.
-- `federacao` texto livre não deve permanecer como fonte autoritativa.
+- `federacao` texto livre deixa de ser fonte autoritativa.
 - Profissional pode criar campeonato diretamente.
-- Campeonato criado integra catálogo compartilhado.
-- Criador do cadastro não possui exclusividade sobre o campeonato.
+- Campeonato integra catálogo compartilhado.
+- Criador não possui exclusividade sobre o campeonato.
 - Campeonato pode integrar várias temporadas.
-- Campeonato não referencia temporada diretamente.
-- Associação N:N é realizada via `TemporadaCampeonato`.
+- Associação é N:N via `TemporadaCampeonato`.
 - Profissionais não editam diretamente campeonato existente.
 - Alterações são solicitadas ao proprietário.
-- Alteração aprovada afeta o cadastro compartilhado.
+- Somente proprietário cancela campeonato.
+- Profissional apenas solicita cancelamento.
+- Solicitação de cancelamento exige justificativa.
+- Cancelamento é lógico.
+- Campeonato cancelado não é fisicamente excluído.
 - Categoria/classe não são pré-configuradas no campeonato.
 - Inscrição pertence ao campeonato, não à temporada.
-- Não excluir fisicamente campeonato já utilizado.
 
-## Decisões abertas
+## Decisões ainda abertas
 
 ### D1 — Prevenção de duplicidade
 
-Definir se possível duplicidade por `(nome normalizado, organizador, data inicial)`:
-
-- deve ser bloqueada; ou
-- gera apenas alerta/necessidade de confirmação.
-
-**Recomendação:** bloquear a criação ordinária de duplicidade exata dessa chave semântica. Se houver caso legítimo excepcional, somente o proprietário poderá autorizar/corrigir o cadastro.
+Recomendação: bloquear criação ordinária de `(nome normalizado, organizador, data inicial)` duplicado. Exceção somente por proprietário.
 
 ### D2 — Alterações após uso
 
-Definir quais campos podem ser alterados após existir inscrição ou resultado.
-
-**Recomendação:**
+Recomendação:
 
 - nome: permitir;
 - local: permitir;
 - organizador: permitir com justificativa/auditoria;
 - datas: permitir com justificativa/auditoria;
-- identidade do campeonato: nunca substituir; se for outro evento, criar novo campeonato.
+- identidade: nunca substituir; outro evento exige novo campeonato.
 
-### D3 — Cancelamento lógico do campeonato
+### D3 — Efeito esportivo do cancelamento
 
-Definir se o campeonato terá estado explícito `CANCELADO` além de ativo/inativo e os efeitos sobre inscrições/resultados/ranking.
+Ainda é necessário definir o que ocorre, após o proprietário cancelar um campeonato, com:
 
-**Recomendação:** usar `ATIVO` e `CANCELADO` como estados de negócio, evitando um `flAtivo` ambíguo para evento esportivo. Cancelamento deve preservar todo histórico e impedir novas inscrições/associações, mas seus efeitos sobre resultados já aprovados e rankings precisam de decisão explícita do produto.
+- inscrições já confirmadas;
+- resultados `PENDENTE_APROVACAO`;
+- resultados `APROVADO`;
+- pontos/rankings de temporadas que possuem o campeonato associado.
+
+O cancelamento lógico, a autoridade exclusiva do proprietário e o fluxo de solicitação profissional já estão confirmados; somente esses efeitos esportivos permanecem abertos.
