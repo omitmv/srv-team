@@ -40,7 +40,8 @@ Campos iniciais recomendados:
 - `cdClasse`
 - `colocacao`
 - `status`
-- `versao`
+- `nrVersao`
+- `lockVersion`
 - `cdResponsavelLancamento`
 - `dtLancamento`
 - `cdResponsavelDecisao`
@@ -51,7 +52,7 @@ Campos iniciais recomendados:
 - `motivoCancelamento`
 - campos de auditoria
 
-A lista poderá ser refinada à medida que os fluxos restantes forem fechados.
+`nrVersao` representa a versão de negócio submetida ao atleta. `lockVersion` representa exclusivamente o controle técnico de concorrência otimista.
 
 ## Estados do resultado
 
@@ -105,19 +106,15 @@ existe VinculoProfissionalAtleta ATIVO
 para (profissional, atleta da Inscricao)
 ```
 
-Isso permite que profissionais diferentes, desde que efetivamente vinculados ao atleta, corrijam o lançamento antes da decisão do atleta.
-
 A edição deve:
 
 - manter o mesmo `cdResultado`;
 - atualizar os dados corrigidos do resultado;
-- incrementar a versão do resultado;
+- incrementar `nrVersao`;
 - registrar quem realizou a alteração e quando;
 - invalidar qualquer solicitação de aprovação vinculada a uma versão anterior;
 - manter o resultado em `PENDENTE_APROVACAO`;
 - exigir aprovação do atleta sobre a versão atualizada antes de qualquer efeito esportivo.
-
-A aprovação do atleta deve sempre estar associada à versão corrente do resultado. Se o resultado for alterado após a emissão de uma solicitação de aprovação, uma tentativa de aprovar a versão anterior deve ser recusada pelo backend.
 
 Após `APROVADO`, a permissão ordinária de edição por profissionais deixa de existir.
 
@@ -146,7 +143,7 @@ A correção administrativa deve:
 
 - exigir justificativa obrigatória;
 - manter o mesmo `cdResultado`;
-- incrementar a versão do resultado;
+- incrementar `nrVersao`;
 - manter `status = APROVADO`;
 - registrar proprietário responsável pela alteração;
 - registrar data/hora;
@@ -212,30 +209,134 @@ Esse novo lançamento:
 - não herda aprovação do registro anterior;
 - somente passa a produzir efeitos esportivos após nova aprovação do atleta.
 
+## Controle de versão e concorrência
+
+O MVP deve distinguir dois conceitos:
+
+### 1. Versão de negócio — `nrVersao`
+
+`nrVersao` identifica exatamente qual conteúdo do resultado foi apresentado ao atleta para aprovação.
+
+Regras:
+
+- novo resultado nasce com `nrVersao = 1`;
+- toda alteração em dados esportivos relevantes incrementa `nrVersao`;
+- no fluxo ordinário, alterações relevantes incluem pelo menos categoria, classe e colocação;
+- correção administrativa do proprietário também incrementa `nrVersao`;
+- aprovação ou reprovação do atleta deve informar o `nrVersao` que ele visualizou;
+- o backend deve comparar a versão recebida com a versão atual antes de aplicar a decisão.
+
 Exemplo:
 
 ```text
-Inscrição #123
+Resultado #50
+nrVersao = 1
+colocacao = 2
 
-Resultado #10
-  Categoria: Classic Physique
-  Classe: Sênior
-  Colocação: 2
-  Status: CANCELADO
-  Motivo: atleta reprovou o lançamento
+Atleta abre a tela e visualiza versão 1
 
-Resultado #11
-  Categoria: Classic Physique
-  Classe: Sênior
-  Colocação: 1
-  Status: PENDENTE_APROVACAO
+Profissional corrige:
+colocacao = 1
+nrVersao = 2
 
-Atleta aprova
+Atleta tenta aprovar versão 1
+=> operação recusada
 
-Resultado #11 -> APROVADO
+Atleta recarrega o resultado
+=> visualiza versão 2
+=> pode aprovar versão 2
 ```
 
-Somente o `Resultado #11` aprovado entra em relatórios esportivos, pontuação e rankings.
+Uma decisão referente a versão antiga nunca deve ser convertida automaticamente em decisão sobre a versão atual.
+
+### 2. Concorrência técnica — `lockVersion`
+
+Além de `nrVersao`, a entidade deve possuir controle de concorrência otimista técnico, preferencialmente com JPA `@Version`.
+
+Exemplo conceitual:
+
+```java
+@Version
+private Long lockVersion;
+```
+
+Esse campo não possui significado esportivo e não deve ser usado como versão apresentada ao atleta.
+
+Sua função é impedir lost update quando duas requisições concorrentes tentarem alterar o mesmo `Resultado`.
+
+### Por que separar os dois campos
+
+Não usar `@Version` como substituto de `nrVersao`.
+
+`@Version` pode ser incrementado por operações técnicas/persistência que não representam necessariamente uma nova versão esportiva submetida ao atleta.
+
+Portanto:
+
+```text
+nrVersao   = versão funcional aprovada/reprovada pelo atleta
+lockVersion = versão técnica para optimistic locking
+```
+
+Essa separação mantém o contrato de negócio estável e evita acoplamento da regra de aprovação ao mecanismo de persistência.
+
+## Aprovação do atleta com controle de versão
+
+A solicitação de aprovação deve transportar, de forma confiável:
+
+- `cdResultado`;
+- `nrVersao` esperado.
+
+Ao receber aprovação, o backend deve validar na mesma transação:
+
+1. resultado existe;
+2. pertence ao atleta autenticado;
+3. está `PENDENTE_APROVACAO`;
+4. `nrVersao` informado corresponde ao atual;
+5. nenhuma alteração concorrente venceu a transação;
+6. somente então alterar para `APROVADO`.
+
+Se a versão estiver desatualizada, a operação deve falhar sem alterar o estado.
+
+Resposta de API recomendada para conflito de versão/estado concorrente: `409 Conflict`.
+
+O mesmo princípio vale para reprovação pelo atleta.
+
+## Edições concorrentes por profissionais
+
+Como mais de um profissional vinculado pode editar um resultado pendente, duas alterações podem ocorrer praticamente ao mesmo tempo.
+
+O comportamento esperado é:
+
+```text
+Profissional A lê lockVersion = 4
+Profissional B lê lockVersion = 4
+
+A salva primeiro
+=> lockVersion passa para 5
+=> nrVersao é incrementada
+
+B tenta salvar baseado em lockVersion = 4
+=> optimistic lock falha
+=> alteração de B não sobrescreve A
+```
+
+O backend não deve realizar merge implícito de alterações concorrentes no MVP.
+
+A segunda requisição deve receber conflito e recarregar o estado atual antes de tentar novamente.
+
+## Atomicidade da decisão
+
+A verificação de versão e a mudança de estado devem ocorrer dentro da mesma transação.
+
+Não é suficiente:
+
+1. consultar versão;
+2. encerrar transação;
+3. posteriormente aprovar.
+
+Esse desenho permitiria race condition entre a leitura e a decisão.
+
+A persistência deve garantir que nenhuma edição concorrente possa ocorrer silenciosamente entre a validação da versão e a mudança para `APROVADO` ou `CANCELADO`.
 
 ## Invariante de resultado ativo
 
@@ -258,8 +359,6 @@ Essa regra deve ser protegida transacionalmente para evitar dois lançamentos co
 
 ## Histórico
 
-Nunca sobrescrever um resultado cancelado por reprovação com os dados corrigidos do novo lançamento.
-
 O histórico deve permitir reconstruir:
 
 - quem lançou;
@@ -267,7 +366,7 @@ O histórico deve permitir reconstruir:
 - quais dados foram informados;
 - quais alterações ocorreram enquanto pendente;
 - qual profissional realizou cada alteração;
-- qual versão foi submetida ao atleta;
+- qual `nrVersao` foi submetida ao atleta;
 - quem aprovou ou reprovou;
 - quando decidiu;
 - motivo da reprovação;
@@ -276,6 +375,8 @@ O histórico deve permitir reconstruir:
 - justificativa de cada intervenção administrativa;
 - eventual cancelamento administrativo posterior;
 - responsável e data de cada intervenção do proprietário.
+
+`@Version` por si só não preserva histórico. Portanto, o histórico funcional deverá ser atendido por mecanismo próprio de auditoria/versionamento, a ser implementado sem usar `lockVersion` como substituto de trilha histórica.
 
 ## Relação com a pontuação
 
@@ -301,12 +402,16 @@ Qualquer correção ou cancelamento administrativo de um resultado aprovado deve
 - Resultado só é esportivamente válido após aprovação do atleta.
 - Enquanto `PENDENTE_APROVACAO`, qualquer profissional com vínculo ativo com o atleta pode editar o resultado.
 - O profissional editor não precisa ser o responsável pelo lançamento original.
-- Edição de resultado pendente mantém a mesma identidade e incrementa sua versão.
-- A aprovação do atleta deve corresponder à versão atual do resultado.
-- Uma edição invalida qualquer aprovação/solicitação referente a versão anterior.
+- Edição de resultado pendente mantém a mesma identidade e incrementa `nrVersao`.
+- A aprovação do atleta deve corresponder à `nrVersao` atual do resultado.
+- Uma edição invalida qualquer aprovação/solicitação referente à versão anterior.
+- `nrVersao` é versão de negócio; `lockVersion` é controle técnico de concorrência.
+- Resultado deve usar optimistic locking técnico, preferencialmente via JPA `@Version`.
+- Conflitos de edição/aprovação concorrente devem falhar; não realizar merge automático.
+- `409 Conflict` é a resposta recomendada para conflito de versão/estado concorrente.
 - Após `APROVADO`, profissionais não podem editar pelo fluxo ordinário.
 - Proprietário pode corrigir diretamente resultado `APROVADO`.
-- Correção administrativa mantém o resultado `APROVADO`, incrementa versão e tem efeito imediato.
+- Correção administrativa mantém o resultado `APROVADO`, incrementa `nrVersao` e tem efeito imediato.
 - Correção administrativa não exige nova aprovação do atleta.
 - Correção administrativa exige justificativa obrigatória.
 - Proprietário pode cancelar diretamente resultado `APROVADO`.
@@ -320,7 +425,6 @@ Qualquer correção ou cancelamento administrativo de um resultado aprovado deve
 - O novo resultado precisa de nova aprovação do atleta.
 - Apenas resultados `APROVADO` participam de pontuação, rankings e relatórios esportivos.
 
-## Próximos pontos de refinamento
+## Próximo refinamento
 
-1. Fechar estratégia técnica de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
-2. Refinar migração/aposentadoria de `tbPontuacaoHist`.
+Refinar migração/aposentadoria de `tbPontuacaoHist` e fechar a estratégia de histórico funcional do novo `Resultado`.
