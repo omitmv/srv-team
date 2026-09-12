@@ -127,6 +127,7 @@ TemporadaPenalidade
  ├── cdTemporada
  ├── tipoPenalidade
  ├── valor
+ ├── modoAplicacao
  └── auditoria
 ```
 
@@ -143,19 +144,75 @@ Unicidade lógica:
 
 A ausência de regra cadastrada para determinada situação significa **zero de impacto**, e não erro de cálculo.
 
-Exemplos:
+### Modo de aplicação da penalidade
+
+O profissional administrador da temporada define, no momento da configuração da tabela de pontuação/penalidades, como cada tipo de penalidade será aplicado quando houver mais de um resultado correspondente no mesmo campeonato.
+
+No MVP, suportar:
+
+- `POR_RESULTADO`
+- `UMA_POR_CAMPEONATO`
+
+A configuração é independente por `tipoPenalidade`.
+
+#### POR_RESULTADO
+
+Cada `Resultado APROVADO` correspondente aplica a penalidade uma vez.
+
+Exemplo:
+
+```text
+AUSENCIA = -2
+modoAplicacao = POR_RESULTADO
+
+Campeonato X:
+Categoria A / Classe 1 -> AUSENTE
+Categoria A / Classe 2 -> AUSENTE
+
+Impacto = -4
+```
+
+#### UMA_POR_CAMPEONATO
+
+A existência de um ou mais resultados aprovados do mesmo tipo no mesmo campeonato gera apenas uma aplicação da penalidade para aquele atleta naquele campeonato.
+
+Exemplo:
+
+```text
+AUSENCIA = -2
+modoAplicacao = UMA_POR_CAMPEONATO
+
+Campeonato X:
+Categoria A / Classe 1 -> AUSENTE
+Categoria A / Classe 2 -> AUSENTE
+
+Impacto = -2
+```
+
+A mesma regra vale para `DESCLASSIFICACAO` quando configurada nesse modo.
+
+`AUSENCIA` e `DESCLASSIFICACAO` podem possuir modos diferentes na mesma temporada. Exemplo:
+
+```text
+DESCLASSIFICACAO = -5 / POR_RESULTADO
+AUSENCIA         = -2 / UMA_POR_CAMPEONATO
+```
+
+A agregação nunca altera os `Resultado` originais. Ela é apenas uma regra de interpretação da temporada.
+
+Exemplos de configuração:
 
 ```text
 Temporada A
-DESCLASSIFICACAO = -5
-AUSENCIA         = 0
+DESCLASSIFICACAO = -5 / POR_RESULTADO
+AUSENCIA         = 0  / UMA_POR_CAMPEONATO
 
 Temporada B
-DESCLASSIFICACAO = -10
-AUSENCIA         = -2
+DESCLASSIFICACAO = -10 / UMA_POR_CAMPEONATO
+AUSENCIA         = -2  / POR_RESULTADO
 ```
 
-O mesmo resultado esportivo pode, portanto, produzir impactos distintos conforme a temporada.
+O mesmo conjunto de resultados esportivos pode, portanto, produzir impactos distintos conforme a temporada.
 
 ## Domínio numérico
 
@@ -186,9 +243,11 @@ Resultado APROVADO + CLASSIFICADO
 
 Resultado APROVADO + DESCLASSIFICADO
   -> TemporadaPenalidade.DESCLASSIFICACAO
+  -> aplicar conforme modoAplicacao
 
 Resultado APROVADO + AUSENTE
   -> TemporadaPenalidade.AUSENCIA
+  -> aplicar conforme modoAplicacao
 ```
 
 Não persistir pontos ou penalidade calculada como verdade autoritativa no `Resultado`.
@@ -207,15 +266,15 @@ Elegibilidade é derivada.
 
 Ranking é projeção dinâmica e não entidade autoritativa no MVP.
 
-O total do atleta é a soma algébrica dos impactos válidos na temporada:
+O total do atleta é a soma algébrica dos impactos válidos na temporada após aplicação das regras de agregação configuradas:
 
 ```text
-TOTAL = soma(pontuações classificatórias) + soma(penalidades)
+TOTAL = soma(pontuações classificatórias) + soma(penalidades agregadas)
 ```
 
 O total pode ser positivo, zero ou negativo.
 
-Alterações nas tabelas de pontuação/penalidade exigem recálculo das projeções afetadas.
+Alterações nas tabelas de pontuação, valores de penalidade ou `modoAplicacao` exigem recálculo das projeções afetadas.
 
 ## Invariantes consolidadas
 
@@ -228,6 +287,9 @@ Alterações nas tabelas de pontuação/penalidade exigem recálculo das projeç
 - ausência de lançamento não produz penalidade;
 - penalidades pertencem à temporada;
 - desclassificação e ausência possuem regras independentes;
+- cada penalidade possui valor e modo de aplicação próprios;
+- modos mínimos no MVP: `POR_RESULTADO` e `UMA_POR_CAMPEONATO`;
+- ausência e desclassificação podem usar modos diferentes na mesma temporada;
 - ausência de penalidade configurada equivale a zero;
 - valores negativos são permitidos;
 - pontuação e penalidade usam `BigDecimal(10,3)`;
