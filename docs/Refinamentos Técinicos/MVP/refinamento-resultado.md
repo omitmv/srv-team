@@ -90,6 +90,39 @@ Consequentemente:
 - `CANCELADO` não participa dos rankings;
 - apenas `APROVADO` participa dos cálculos, desde que as demais regras de elegibilidade da temporada também sejam satisfeitas.
 
+## Edição enquanto pendente
+
+Enquanto o resultado estiver em `PENDENTE_APROVACAO`, ele pode ser editado por qualquer profissional que possua vínculo ativo com o atleta da inscrição.
+
+A autorização não depende de o profissional ter sido o responsável pelo lançamento original.
+
+Regra de autorização mínima:
+
+```text
+Resultado.status == PENDENTE_APROVACAO
+AND
+existe VinculoProfissionalAtleta ATIVO
+para (profissional, atleta da Inscricao)
+```
+
+Isso permite que profissionais diferentes, desde que efetivamente vinculados ao atleta, corrijam o lançamento antes da decisão do atleta.
+
+A edição deve:
+
+- manter o mesmo `cdResultado`;
+- atualizar os dados corrigidos do resultado;
+- incrementar a versão do resultado;
+- registrar quem realizou a alteração e quando;
+- invalidar qualquer solicitação de aprovação vinculada a uma versão anterior;
+- manter o resultado em `PENDENTE_APROVACAO`;
+- exigir aprovação do atleta sobre a versão atualizada antes de qualquer efeito esportivo.
+
+A aprovação do atleta deve sempre estar associada à versão corrente do resultado. Se o resultado for alterado após a emissão de uma solicitação de aprovação, uma tentativa de aprovar a versão anterior deve ser recusada pelo backend.
+
+Após `APROVADO`, a permissão ordinária de edição por profissionais deixa de existir. Intervenções posteriores seguem o fluxo administrativo específico a ser refinado para o proprietário.
+
+Se o vínculo do profissional com o atleta deixar de estar ativo antes da edição, ele não pode mais modificar o resultado, mesmo que tenha sido seu responsável pelo lançamento original.
+
 ## Reprovação pelo atleta
 
 Quando o atleta reprova um resultado:
@@ -170,6 +203,9 @@ O histórico deve permitir reconstruir:
 - quem lançou;
 - quando lançou;
 - quais dados foram informados;
+- quais alterações ocorreram enquanto pendente;
+- qual profissional realizou cada alteração;
+- qual versão foi submetida ao atleta;
 - quem aprovou ou reprovou;
 - quando decidiu;
 - motivo da reprovação;
@@ -195,6 +231,12 @@ Portanto, o mesmo resultado aprovado pode gerar pontuação diferente em tempora
 - Há no máximo um resultado ativo por `(Inscricao, Categoria, Classe)`.
 - Todo novo lançamento nasce `PENDENTE_APROVACAO`.
 - Resultado só é esportivamente válido após aprovação do atleta.
+- Enquanto `PENDENTE_APROVACAO`, qualquer profissional com vínculo ativo com o atleta pode editar o resultado.
+- O profissional editor não precisa ser o responsável pelo lançamento original.
+- Edição de resultado pendente mantém a mesma identidade e incrementa sua versão.
+- A aprovação do atleta deve corresponder à versão atual do resultado.
+- Uma edição invalida qualquer aprovação/solicitação referente a versão anterior.
+- Após `APROVADO`, profissionais não podem editar pelo fluxo ordinário.
 - Reprovação pelo atleta transforma o lançamento em `CANCELADO`.
 - Resultado cancelado permanece no histórico.
 - Após reprovação, o profissional cria um novo resultado; não corrige o registro cancelado como se fosse o mesmo lançamento.
@@ -203,8 +245,7 @@ Portanto, o mesmo resultado aprovado pode gerar pontuação diferente em tempora
 
 ## Próximos pontos de refinamento
 
-1. Definir regras de edição enquanto `PENDENTE_APROVACAO`.
-2. Definir intervenção do proprietário sobre resultado `APROVADO`.
-3. Definir cancelamento administrativo de resultado aprovado.
-4. Fechar estratégia de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
-5. Refinar migração/aposentadoria de `tbPontuacaoHist`.
+1. Definir intervenção do proprietário sobre resultado `APROVADO`.
+2. Definir cancelamento administrativo de resultado aprovado.
+3. Fechar estratégia técnica de controle de versão/concor­rência para impedir aprovação de uma versão desatualizada.
+4. Refinar migração/aposentadoria de `tbPontuacaoHist`.
