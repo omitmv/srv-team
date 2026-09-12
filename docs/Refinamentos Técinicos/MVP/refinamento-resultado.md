@@ -1,6 +1,6 @@
 # Refinamento técnico — Resultado
 
-Status: modelagem técnica em andamento; decisões já confirmadas abaixo.
+Status: modelagem técnica consolidada para o MVP; implementação e migração pendentes.
 
 ## Objetivo
 
@@ -32,7 +32,7 @@ Resultados históricos anteriores da mesma combinação podem permanecer armazen
 
 ## Entidade conceitual
 
-Campos iniciais recomendados:
+Campos recomendados:
 
 - `cdResultado`
 - `cdInscricao`
@@ -56,7 +56,7 @@ Campos iniciais recomendados:
 
 ## Estados do resultado
 
-Estados mínimos recomendados para o MVP:
+Estados mínimos para o MVP:
 
 - `PENDENTE_APROVACAO`
 - `APROVADO`
@@ -226,27 +226,6 @@ Regras:
 - aprovação ou reprovação do atleta deve informar o `nrVersao` que ele visualizou;
 - o backend deve comparar a versão recebida com a versão atual antes de aplicar a decisão.
 
-Exemplo:
-
-```text
-Resultado #50
-nrVersao = 1
-colocacao = 2
-
-Atleta abre a tela e visualiza versão 1
-
-Profissional corrige:
-colocacao = 1
-nrVersao = 2
-
-Atleta tenta aprovar versão 1
-=> operação recusada
-
-Atleta recarrega o resultado
-=> visualiza versão 2
-=> pode aprovar versão 2
-```
-
 Uma decisão referente a versão antiga nunca deve ser convertida automaticamente em decisão sobre a versão atual.
 
 ### 2. Concorrência técnica — `lockVersion`
@@ -268,12 +247,8 @@ Sua função é impedir lost update quando duas requisições concorrentes tenta
 
 Não usar `@Version` como substituto de `nrVersao`.
 
-`@Version` pode ser incrementado por operações técnicas/persistência que não representam necessariamente uma nova versão esportiva submetida ao atleta.
-
-Portanto:
-
 ```text
-nrVersao   = versão funcional aprovada/reprovada pelo atleta
+nrVersao    = versão funcional aprovada/reprovada pelo atleta
 lockVersion = versão técnica para optimistic locking
 ```
 
@@ -305,21 +280,6 @@ O mesmo princípio vale para reprovação pelo atleta.
 
 Como mais de um profissional vinculado pode editar um resultado pendente, duas alterações podem ocorrer praticamente ao mesmo tempo.
 
-O comportamento esperado é:
-
-```text
-Profissional A lê lockVersion = 4
-Profissional B lê lockVersion = 4
-
-A salva primeiro
-=> lockVersion passa para 5
-=> nrVersao é incrementada
-
-B tenta salvar baseado em lockVersion = 4
-=> optimistic lock falha
-=> alteração de B não sobrescreve A
-```
-
 O backend não deve realizar merge implícito de alterações concorrentes no MVP.
 
 A segunda requisição deve receber conflito e recarregar o estado atual antes de tentar novamente.
@@ -327,14 +287,6 @@ A segunda requisição deve receber conflito e recarregar o estado atual antes d
 ## Atomicidade da decisão
 
 A verificação de versão e a mudança de estado devem ocorrer dentro da mesma transação.
-
-Não é suficiente:
-
-1. consultar versão;
-2. encerrar transação;
-3. posteriormente aprovar.
-
-Esse desenho permitiria race condition entre a leitura e a decisão.
 
 A persistência deve garantir que nenhuma edição concorrente possa ocorrer silenciosamente entre a validação da versão e a mudança para `APROVADO` ou `CANCELADO`.
 
@@ -357,26 +309,165 @@ Para o MVP, considerar como estados que ocupam a combinação:
 
 Essa regra deve ser protegida transacionalmente para evitar dois lançamentos concorrentes para a mesma combinação.
 
-## Histórico
+## Histórico funcional
 
-O histórico deve permitir reconstruir:
+`@Version` não preserva histórico e não deve ser usado para esse propósito.
 
-- quem lançou;
-- quando lançou;
-- quais dados foram informados;
-- quais alterações ocorreram enquanto pendente;
-- qual profissional realizou cada alteração;
-- qual `nrVersao` foi submetida ao atleta;
-- quem aprovou ou reprovou;
-- quando decidiu;
-- motivo da reprovação;
-- quais correções administrativas foram realizadas após aprovação;
-- valores anteriores e novos de cada correção administrativa;
-- justificativa de cada intervenção administrativa;
-- eventual cancelamento administrativo posterior;
-- responsável e data de cada intervenção do proprietário.
+Criar um mecanismo explícito de histórico funcional. A recomendação para o MVP é uma entidade `ResultadoHistorico`, vinculada ao `Resultado` atual.
 
-`@Version` por si só não preserva histórico. Portanto, o histórico funcional deverá ser atendido por mecanismo próprio de auditoria/versionamento, a ser implementado sem usar `lockVersion` como substituto de trilha histórica.
+### Entidade conceitual `ResultadoHistorico`
+
+Campos recomendados:
+
+- `cdResultadoHistorico`
+- `cdResultado`
+- `nrVersao`
+- `tipoEvento`
+- `cdInscricao`
+- `cdCategoria`
+- `cdClasse`
+- `colocacao`
+- `status`
+- `cdResponsavelEvento`
+- `dtEvento`
+- `justificativa`
+- campos de auditoria
+
+O histórico deve armazenar um snapshot suficiente para reconstruir o estado funcional do resultado naquele momento.
+
+### Tipos de evento
+
+Enum conceitual recomendado:
+
+- `CRIACAO`
+- `EDICAO_PENDENTE`
+- `APROVACAO_ATLETA`
+- `REPROVACAO_ATLETA`
+- `CORRECAO_ADMINISTRATIVA`
+- `CANCELAMENTO_ADMINISTRATIVO`
+
+Não usar o histórico como fonte de verdade do estado atual. A fonte de verdade operacional permanece `Resultado`; `ResultadoHistorico` é trilha imutável de auditoria funcional.
+
+### Quando registrar histórico
+
+Registrar evento, no mínimo, em toda operação que altere estado funcional ou dados esportivos do resultado:
+
+- criação;
+- edição pendente;
+- aprovação;
+- reprovação;
+- correção administrativa;
+- cancelamento administrativo.
+
+Cada operação deve atualizar `Resultado` e inserir seu `ResultadoHistorico` na mesma transação.
+
+Se a gravação do histórico falhar, a alteração funcional também deve falhar.
+
+### Imutabilidade
+
+Registros de `ResultadoHistorico` não podem ser alterados nem excluídos pelo fluxo ordinário da aplicação.
+
+Correções posteriores geram novos eventos; nunca reescrevem eventos anteriores.
+
+### Snapshot e referência histórica
+
+Mesmo que categoria, classe ou inscrição sofram alterações cadastrais futuras, o histórico deve preservar as chaves utilizadas em cada versão.
+
+Quando necessário para requisitos de auditoria mais fortes, descrições exibíveis podem ser reconstruídas por referência ao catálogo; não duplicar nomes na tabela histórica sem necessidade concreta.
+
+## Migração da `tbPontuacaoHist`
+
+A atual `tbPontuacaoHist` possui semântica incompatível com o novo domínio de `Resultado`.
+
+No modelo atual ela relaciona:
+
+- competidor;
+- competição;
+- registro de pontuação;
+- data de cadastro.
+
+O registro de pontuação legado fornece colocação por meio de `Pontuacao`, mas não representa adequadamente:
+
+- ciclo de inscrição com identidade própria;
+- categoria;
+- classe;
+- tipo de classe;
+- aprovação do atleta;
+- status do resultado;
+- versões;
+- cancelamento/reprovação;
+- autoria das decisões.
+
+Também não foi identificada no código atual uma associação complementar que permita reconstruir de forma confiável `Categoria + Classe` a partir de `PontuacaoHist`.
+
+Portanto, não é seguro transformar automaticamente todo registro de `tbPontuacaoHist` em um `Resultado` do novo domínio atribuindo categoria/classe artificialmente.
+
+### Estratégia de migração recomendada
+
+A migração deve ser dividida em duas partes.
+
+#### 1. Inscrições legadas
+
+Cada registro de `tbCompetidores` deve originar uma `Inscricao` `CONFIRMADA`, conforme refinamento específico de inscrição.
+
+Preservar, quando disponível:
+
+- atleta;
+- campeonato;
+- data histórica de cadastro.
+
+Essas inscrições servirão como raiz para qualquer resultado legado que possa ser convertido com segurança.
+
+#### 2. Pontuações/resultados legados
+
+Para cada `tbPontuacaoHist`:
+
+1. localizar a inscrição migrada correspondente ao atleta/campeonato;
+2. resolver a colocação por meio de `cdPontuacao` quando possível;
+3. verificar se existem dados confiáveis para determinar categoria e classe;
+4. somente criar `Resultado` se todos os atributos obrigatórios puderem ser reconstruídos sem inferência arbitrária.
+
+Se categoria e classe não puderem ser determinadas de forma confiável, o registro não deve ser convertido em `Resultado` ativo do novo domínio.
+
+### Preservação do legado não conversível
+
+Registros que não puderem ser convertidos integralmente devem permanecer preservados para consulta/auditoria histórica durante a transição.
+
+Opções técnicas aceitáveis:
+
+- manter as tabelas legadas em modo somente leitura durante período de transição; ou
+- copiar os registros para uma estrutura explicitamente marcada como legado bruto antes da remoção das tabelas antigas.
+
+Para o MVP, a recomendação é **manter `tbPontuacaoHist` e as dependências legadas em modo somente leitura até a validação completa da migração**, evitando perda de informação.
+
+Não utilizar esses registros incompletos em novos rankings ou pontuações do novo domínio.
+
+### Não inventar aprovação histórica
+
+Mesmo quando um registro legado puder ser convertido em `Resultado`, não há evidência de que tenha passado pelo novo fluxo de aprovação do atleta.
+
+Por isso, registros migrados devem ser explicitamente identificáveis como originados de migração.
+
+Recomendação:
+
+- adicionar `origem` ao `Resultado` ou à auditoria correspondente;
+- valores mínimos: `FLUXO_NORMAL`, `MIGRACAO_LEGADO`, `ADMINISTRATIVO` quando necessário.
+
+Para registros convertidos a partir do legado, o proprietário poderá tratá-los como `APROVADO` por migração somente se essa decisão fizer parte do processo de cutover e ficar auditada como `MIGRACAO_LEGADO`.
+
+Não registrar falsamente o atleta como responsável pela aprovação histórica.
+
+### Cutover
+
+Após a migração:
+
+1. bloquear novas gravações em `tbCompetidores`, `tbPontuacaoHist` e estruturas de pontuação legadas substituídas;
+2. direcionar toda nova operação para `Inscricao`, `Resultado` e `TemporadaPontuacao`;
+3. executar reconciliação quantitativa dos dados migrados;
+4. validar amostras funcionais com atleta/campeonato/colocação;
+5. somente depois considerar remoção física das tabelas legadas em versão posterior.
+
+A remoção das tabelas antigas não faz parte do primeiro passo da migração.
 
 ## Relação com a pontuação
 
@@ -424,7 +515,14 @@ Qualquer correção ou cancelamento administrativo de um resultado aprovado deve
 - Após reprovação, o profissional cria um novo resultado; não corrige o registro cancelado como se fosse o mesmo lançamento.
 - O novo resultado precisa de nova aprovação do atleta.
 - Apenas resultados `APROVADO` participam de pontuação, rankings e relatórios esportivos.
+- Histórico funcional deve ser explícito e imutável via `ResultadoHistorico` ou mecanismo equivalente.
+- Alteração funcional e gravação de histórico devem ocorrer na mesma transação.
+- `tbPontuacaoHist` não é semanticamente equivalente a `Resultado`.
+- Migração automática só ocorre quando inscrição, categoria, classe e colocação puderem ser reconstruídas com segurança.
+- Dados legados incompletos não devem receber categoria/classe inventadas.
+- Legado não conversível permanece preservado em modo somente leitura durante a transição.
+- Registros migrados devem ter origem identificável e não devem simular aprovação histórica inexistente.
 
 ## Próximo refinamento
 
-Refinar migração/aposentadoria de `tbPontuacaoHist` e fechar a estratégia de histórico funcional do novo `Resultado`.
+Com `Resultado` fechado conceitualmente, o próximo refinamento deve tratar a composição dos rankings e critérios de desempate, incluindo ranking geral, ranking por categoria e comportamento de atletas com zero pontos.
