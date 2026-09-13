@@ -39,7 +39,8 @@ Continua permitindo:
 
 - consulta;
 - cálculo de ranking;
-- lançamento/aprovação/reprovação/correção de resultados tardios referentes a campeonatos já associados;
+- solicitação, aprovação/reprovação, cadastro direto e cancelamento permitido de `Inscricao` tardia referente a campeonato já associado;
+- lançamento/aprovação/reprovação/correção de `Resultado` tardio referente a campeonato já associado;
 - recálculo automático do ranking quando esses fatos esportivos mudam;
 - inclusão e remoção de profissionais em `TemporadaProfissional`;
 - promoção ou rebaixamento entre `ADMINISTRACAO` e `CONSULTA`, respeitadas as regras de proteção do criador.
@@ -174,13 +175,29 @@ E conta do atleta não cancelada
 E vinculoVigenteNaData(atleta, Temporada.cdCriador, Campeonato.dtInicio)
 ```
 
-A data de lançamento/aprovação pode ser posterior ao encerramento. Novo vínculo não torna retroativamente elegíveis campeonatos ocorridos durante intervalo sem vínculo.
+A data de criação/confirmação da inscrição e a data de lançamento/aprovação do resultado podem ser posteriores ao encerramento. Novo vínculo não torna retroativamente elegíveis campeonatos ocorridos durante intervalo sem vínculo.
 
-## Resultado tardio
+## Inscrição e resultado tardios
 
-Resultado é fato esportivo e pode ser registrado posteriormente ao encerramento. Resultado tardio aprovado de campeonato já associado passa a contribuir e recalcula ranking sem necessidade de reabrir a temporada.
+`Inscricao` e `Resultado` são fatos do campeonato e podem ser registrados ou concluídos posteriormente ao encerramento quando o campeonato já estava associado à temporada.
+
+Sem reabrir uma temporada `ENCERRADA`, permanecem permitidos, conforme as regras específicas de cada agregado:
+
+- solicitação de inscrição pelo atleta;
+- aprovação ou reprovação da inscrição;
+- cadastro direto por profissional autorizado;
+- cancelamento de inscrição quando a regra permitir atuação direta;
+- lançamento e edição de resultado pendente;
+- aprovação/reprovação de resultado;
+- correção/cancelamento administrativo de resultado conforme autorização própria.
+
+Confirmação tardia de inscrição ou alteração válida do seu ciclo pode mudar a elegibilidade e provocar recálculo da projeção das temporadas `ATIVO` ou `ENCERRADA` afetadas.
+
+Resultado tardio aprovado passa a contribuir e recalcula ranking sem necessidade de reabrir a temporada.
 
 Reabertura é necessária somente para alterar estrutura/configuração esportiva da própria temporada.
+
+Temporada `CANCELADA` não serve como fundamento ordinário para operações de inscrição ou resultado enquanto permanecer cancelada.
 
 ## Ranking
 
@@ -190,7 +207,7 @@ Ranking é projeção dinâmica, não entidade autoritativa.
 TOTAL = soma(impacto atual de cada Resultado APROVADO válido e elegível)
 ```
 
-O ranking de `ENCERRADA` permanece calculável e pode mudar por resultado tardio, correção/cancelamento válido de resultado ou outros fatos esportivos permitidos.
+O ranking de `ENCERRADA` permanece calculável e pode mudar por inscrição tardia, resultado tardio, correção/cancelamento válido de inscrição ou resultado, ou outros fatos esportivos permitidos.
 
 Alterações de pontuação/penalidade em temporada `ATIVO` recalculam retroativamente todo o ranking afetado usando as regras atuais.
 
@@ -206,11 +223,12 @@ Ranking por categoria permanece fora do MVP.
 - temporada nasce `ATIVO`;
 - `ENCERRADA` pode ser reaberta com justificativa/auditoria;
 - encerramento congela configuração estrutural esportiva, não fatos esportivos históricos nem gestão de acesso;
-- `ENCERRADA` aceita resultados tardios e seu ranking continua dinâmico;
+- `ENCERRADA` aceita inscrição e resultado tardios e seu ranking continua dinâmico;
 - gestão de `TemporadaProfissional` continua permitida em `ENCERRADA` sem reabertura;
 - inclusão, remoção, promoção e rebaixamento de profissionais não alteram ranking;
 - atos históricos de profissional removido/rebaixado permanecem preservados;
 - somente `CANCELADA` suspende efeito esportivo;
+- `CANCELADA` não fundamenta operações ordinárias de inscrição/resultado enquanto cancelada;
 - cancelamento/reativação/encerramento/reabertura preservam histórico auditável;
 - `cdCriador` permanente e imutável; sem transferência;
 - profissional pode ter múltiplas temporadas ativas simultâneas e sobrepostas;
