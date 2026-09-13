@@ -10,19 +10,7 @@ Substituir a associação simplificada atual `Competidores` por uma entidade de 
 
 A entidade atual `Competidores` usa chave composta `(cdCompetidor, cdCompeticao)` e armazena apenas `dtCadastro`.
 
-Essa estrutura não suporta:
-
-- solicitação pendente;
-- aprovação/reprovação;
-- justificativa;
-- responsável pela decisão;
-- remoção;
-- ciclos de reinscrição;
-- histórico;
-- auditoria;
-- distinção entre inscrição atual e inscrições anteriores.
-
-Portanto, ela não deve permanecer como fonte de verdade no novo domínio.
+Essa estrutura não suporta solicitação pendente, aprovação/reprovação, justificativa, responsável pela decisão, remoção, ciclos de reinscrição, histórico e auditoria. Portanto, não deve permanecer como fonte de verdade no novo domínio.
 
 ## Entidade proposta
 
@@ -76,7 +64,7 @@ Enum recomendado:
 
 ### SOLICITACAO_ATLETA
 
-Cria inscrição `PENDENTE` e segue o fluxo de aprovação.
+Cria inscrição `PENDENTE` e segue fluxo de aprovação.
 
 ### CADASTRO_DIRETO_PROFISSIONAL
 
@@ -95,9 +83,27 @@ Deve existir no máximo:
 - uma inscrição `PENDENTE` por atleta/campeonato;
 - uma inscrição `CONFIRMADA` por atleta/campeonato.
 
-Registros `REPROVADA` e `CANCELADA` permanecem históricos e não impedem uma nova tentativa.
+Registros `REPROVADA` e `CANCELADA` permanecem históricos e não impedem nova tentativa.
 
 A regra precisa ser protegida transacionalmente para impedir solicitações concorrentes.
+
+## Autorização contextual por temporada
+
+A autorização operacional sobre uma inscrição é derivada das temporadas que contêm o campeonato.
+
+Para uma temporada específica:
+
+- o criador da temporada possui autoridade administrativa por definição;
+- profissional com `TemporadaProfissional.ADMINISTRACAO` pode operar inscrições dos atletas pertencentes àquela temporada mesmo sem `VinculoProfissionalAtleta` próprio com o atleta;
+- `CONSULTA` não autoriza cadastro direto, aprovação, reprovação ou cancelamento de inscrição;
+- vínculo profissional-atleta próprio não é exigido do administrador da temporada para agir no contexto dessa temporada;
+- vínculo profissional-atleta, isoladamente, não concede autoridade sobre inscrições se o profissional não cria/administra uma temporada que contenha o campeonato.
+
+A autorização contextual não cria vínculo profissional-atleta e não concede poderes fora da temporada que fundamentou a autorização.
+
+Como a inscrição não pertence a uma temporada, uma mesma inscrição pode ser alcançada por mais de uma temporada. Basta que o profissional possua autoridade administrativa válida em ao menos uma temporada associada ao campeonato e na qual o atleta pertença à composição daquela temporada.
+
+A composição do atleta na temporada continua sendo definida pelo vínculo do atleta com o criador da temporada.
 
 ## Solicitação pelo atleta
 
@@ -106,23 +112,45 @@ Antes de criar uma pendência:
 1. verificar se já existe inscrição `CONFIRMADA`;
 2. verificar se já existe `PENDENTE`;
 3. localizar temporadas contendo o campeonato;
-4. identificar criadores/administradores dessas temporadas;
-5. filtrar profissionais que possuem vínculo ativo com o atleta;
+4. entre essas temporadas, identificar aquelas nas quais o atleta pertence à composição da temporada;
+5. identificar criadores e profissionais com `ADMINISTRACAO` nessas temporadas;
 6. remover destinatários duplicados;
 7. se não houver aprovador elegível, não criar a solicitação.
 
-Se já houver pendência, o reenvio deve reutilizar o mesmo registro e apenas reenviar a notificação aos aprovadores elegíveis atuais.
+Não é necessário que cada administrador possua vínculo profissional-atleta próprio com o atleta. A autorização decorre da administração da temporada e da pertença do atleta àquela temporada.
+
+Se já houver pendência, o reenvio reutiliza o mesmo registro e apenas reenvia a notificação aos aprovadores elegíveis atuais.
 
 ## Aprovadores elegíveis
 
 Um profissional pode decidir sobre a solicitação quando, no momento da decisão:
 
-- possui vínculo ativo com o atleta; e
-- cria ou administra ao menos uma temporada que contém o campeonato.
+```text
+existe Temporada T tal que:
+  Campeonato pertence a T
+  E atleta pertence à composição de T
+  E (
+       profissional = T.cdCriador
+       OU profissional possui ADMINISTRACAO em T
+     )
+```
 
-Permissão somente de consulta não autoriza aprovação.
+Não é exigido vínculo direto entre o profissional decisor e o atleta quando a autorização decorre de `ADMINISTRACAO` da temporada.
+
+`CONSULTA` não autoriza decisão.
 
 A autorização deve ser revalidada no momento da decisão; não basta ter sido elegível quando a pendência foi criada.
+
+## Cadastro direto pelo profissional
+
+O mesmo critério de autorização contextual vale para `CADASTRO_DIRETO_PROFISSIONAL`.
+
+Um criador ou administrador pode confirmar diretamente a inscrição de um atleta quando existir ao menos uma temporada administrada por ele que:
+
+- contenha o campeonato; e
+- tenha o atleta em sua composição.
+
+Não é necessário vínculo próprio administrador-atleta.
 
 ## Aprovação
 
@@ -132,13 +160,11 @@ Na aprovação:
 
 - `status = CONFIRMADA`;
 - registrar responsável e data;
-- encerrar a pendência para todos os demais aprovadores;
-- notificar o atleta;
+- encerrar a pendência para os demais aprovadores;
+- notificar atleta;
 - recalcular elegibilidade das temporadas relacionadas.
 
-A inscrição pode ser confirmada mesmo que, após a decisão, nenhuma temporada seja esportivamente elegível para o atleta.
-
-Isso ocorre porque aprovação da inscrição e elegibilidade de temporada são conceitos distintos.
+A inscrição pode ser confirmada mesmo que, após a decisão, nenhuma temporada seja esportivamente elegível para o atleta, porque aprovação de inscrição e elegibilidade esportiva são conceitos distintos.
 
 ## Reprovação
 
@@ -146,194 +172,129 @@ Isso ocorre porque aprovação da inscrição e elegibilidade de temporada são 
 - `status = REPROVADA`;
 - registrar responsável e data;
 - decisão resolve a pendência para todos;
-- atleta recebe notificação de reprovação;
+- atleta recebe notificação;
 - justificativa não é exposta ao atleta;
-- histórico interno preserva a justificativa conforme as permissões definidas no MVP.
+- histórico interno preserva justificativa conforme permissões do MVP.
 
-Após reprovação, uma nova solicitação futura cria novo ciclo de inscrição.
+Nova solicitação futura cria novo ciclo.
 
 ## Perda de autorização durante pendência
 
 A lista de aprovadores é dinâmica.
 
-Se um profissional perder vínculo ou administração:
+O profissional deixa de poder decidir se deixar de satisfazer o critério contextual, por exemplo:
 
-- deixa de poder decidir;
+- perder `ADMINISTRACAO` da temporada que sustentava a autorização;
+- a temporada deixar de conter o campeonato;
+- o atleta deixar de pertencer à composição daquela temporada;
+- perder sua condição operacional de conta conforme as regras gerais do MVP.
+
+A perda de vínculo profissional-atleta próprio do administrador não retira sua autorização quando ele continua autorizado contextualmente por temporada.
+
+Ao perder autorização:
+
 - reavaliar os demais aprovadores elegíveis;
 - manter a mesma `Inscricao` pendente;
-- não criar uma nova pendência.
+- não criar nova pendência.
 
-Se não restar aprovador elegível para uma pendência já existente, encaminhar a demanda ao proprietário.
-
-Conta profissional inativa segue as regras específicas do MVP e não equivale automaticamente à perda de vínculo/administração.
+Se não restar aprovador elegível, encaminhar a demanda ao proprietário.
 
 ## Cancelamento / remoção
 
-A remoção de inscrição deve ser representada como `CANCELADA`, não exclusão física.
+A remoção é `CANCELADA`, nunca exclusão física.
 
 ### Sem qualquer resultado no histórico da inscrição
 
-Profissional autorizado pode cancelar diretamente.
+Criador ou profissional com `ADMINISTRACAO` contextualmente autorizado pode cancelar diretamente.
 
 ### Com qualquer resultado no histórico da inscrição
 
-Mesmo que todos os resultados estejam atualmente cancelados, a remoção da inscrição exige aprovação/intervenção do proprietário.
+Mesmo que todos os resultados estejam atualmente cancelados, o cancelamento da inscrição exige aprovação/intervenção do proprietário.
 
-Essa regra depende da existência histórica de resultados, não apenas de resultados atualmente ativos.
+A regra depende da existência histórica de resultados, não apenas dos atualmente ativos.
 
 ## Efeitos do cancelamento
 
 Ao cancelar inscrição:
 
-- ela deixa de satisfazer elegibilidade da temporada;
-- resultados vinculados ao ciclo devem permanecer preservados;
-- resultados relacionados ao ciclo cancelado deixam de participar de relatórios esportivos e cálculos conforme as regras do MVP;
-- rankings afetados devem ser recalculados;
-- não excluir fisicamente inscrição nem resultados.
+- deixa de satisfazer elegibilidade da temporada;
+- resultados vinculados ao ciclo permanecem preservados;
+- resultados do ciclo cancelado deixam de participar de relatórios esportivos e cálculos conforme regras do MVP;
+- rankings afetados são recalculados;
+- não excluir fisicamente inscrição ou resultados.
 
 ## Reinscrição
 
-Após cancelamento ou reprovação, o atleta pode participar de novo ciclo.
+Após cancelamento ou reprovação, novo ciclo cria nova `Inscricao`.
 
-A reinscrição cria uma nova `Inscricao`.
-
-Resultados de ciclos anteriores nunca são reativados automaticamente.
-
-Novos resultados devem referenciar a nova inscrição.
-
-Portanto:
-
-```text
-Atleta A + Campeonato X
-
-Inscrição #1 -> CONFIRMADA -> CANCELADA
-  └── resultados históricos
-
-Inscrição #2 -> CONFIRMADA
-  └── novos resultados
-```
-
-Isso elimina ambiguidade sobre a qual participação pertence cada resultado.
+Resultados de ciclos anteriores nunca são reativados automaticamente e novos resultados referenciam a nova inscrição.
 
 ## Relação com Resultado
 
-`Resultado` deve referenciar `cdInscricao`, não apenas atleta + campeonato.
+`Resultado` referencia `cdInscricao`, não atleta + campeonato.
 
-Essa decisão é essencial para suportar reinscrição corretamente.
+A partir da inscrição, resultado obtém atleta, campeonato e ciclo de participação.
 
-A partir da inscrição, o resultado consegue obter:
-
-- atleta;
-- campeonato;
-- ciclo de participação.
-
-Assim, não é necessário duplicar `cdAtleta` e `cdCompeticao` como fonte autoritativa dentro de `Resultado`.
-
-### Multiplicidade e unicidade dos resultados
-
-Uma mesma inscrição pode possuir vários resultados, pois o atleta pode disputar diferentes combinações de categoria e classe no mesmo campeonato.
-
-Entretanto, dentro do mesmo ciclo de inscrição, deve existir no máximo um resultado ativo para cada combinação:
+Uma inscrição pode possuir vários resultados em diferentes combinações categoria/classe, mas no máximo um resultado ativo por:
 
 ```text
 (cdInscricao, cdCategoria, cdClasse)
 ```
 
-Exemplo válido:
-
-```text
-Inscrição #123
- ├── Classic Physique + Sênior  -> 1º
- ├── Classic Physique + Master  -> 2º
- ├── Bodybuilding + Sênior      -> 3º
- └── Classic Physique + Overall -> 1º
-```
-
-Não é válido manter simultaneamente dois resultados ativos para a mesma categoria e classe dentro da mesma inscrição.
-
-Registros anteriores da mesma combinação podem existir exclusivamente como histórico, versionamento, reprovação ou cancelamento, conforme o modelo de `Resultado`.
-
-A unicidade pertence ao ciclo de inscrição, e não globalmente ao par atleta/campeonato. Uma eventual reinscrição cria outro `cdInscricao`, permitindo novos resultados sem reativar os resultados do ciclo anterior.
+Registros anteriores podem permanecer somente como histórico/versionamento/cancelamento conforme o modelo de `Resultado`.
 
 ## Relação com Temporada
 
-A inscrição não pertence a uma temporada.
+A inscrição não pertence à temporada.
 
-Ela pertence ao par atleta/campeonato e pode tornar o atleta elegível simultaneamente em várias temporadas.
+Ela pertence ao atleta/campeonato e pode tornar o atleta elegível em várias temporadas simultaneamente.
 
-```text
-Inscricao CONFIRMADA
-        │
-        └── Campeonato
-              │
-              ├── Temporada A
-              ├── Temporada B
-              └── Temporada C
-```
+Cada temporada avalia de forma independente sua elegibilidade esportiva e suas próprias regras.
 
-Cada temporada aplica independentemente suas regras de vínculo com o criador e situação da conta do atleta.
+A autorização operacional do profissional, entretanto, pode ser derivada de uma temporada específica que contenha o campeonato e tenha o atleta em sua composição.
+
+Isso não transforma `Inscricao` em entidade filha da temporada.
 
 ## Índices recomendados
 
 - índice por `cdAtleta`;
 - índice por `cdCompeticao`;
 - índice composto `(cdAtleta, cdCompeticao, status)`;
-- índice por `dtSolicitacao` para filas/pendências quando necessário;
-- proteção lógica para uma única pendência e uma única confirmada por atleta/campeonato.
+- índice por `dtSolicitacao` quando necessário;
+- proteção lógica para única pendência e única confirmada por atleta/campeonato.
 
 ## Auditoria
 
-Preservar pelo menos:
+Preservar pelo menos origem, solicitante, responsável pela decisão, datas, justificativa de reprovação, responsável/data/motivo de cancelamento.
 
-- origem;
-- solicitante;
-- responsável pela decisão;
-- data da solicitação;
-- data da decisão;
-- justificativa de reprovação;
-- responsável pelo cancelamento;
-- data do cancelamento;
-- justificativa quando aplicável.
-
-Eventos de notificação não precisam ser parte da entidade principal; podem ser tratados pela infraestrutura/auditoria correspondente.
+Eventos de notificação não precisam fazer parte da entidade principal.
 
 ## Migração conceitual de `Competidores`
 
-A atual `tbCompetidores` representa implicitamente uma participação confirmada.
+Cada registro legado de `tbCompetidores` deverá ser convertido conceitualmente em `Inscricao CONFIRMADA`, preservando atleta, campeonato e `dtCadastro` quando possível.
 
-Na migração, cada registro legado deverá ser convertido em uma `Inscricao` histórica/atual `CONFIRMADA`, preservando atleta, campeonato e `dtCadastro` como referência temporal quando possível.
-
-A estratégia concreta de migration será definida após o modelo de `Resultado` ser fechado, porque `PontuacaoHist` também depende atualmente de `cdCompetidor` e `cdCompeticao`.
+A estratégia concreta de migration será definida em conjunto com a migração de `Resultado`/`PontuacaoHist`.
 
 ## Invariantes consolidadas
 
-- Inscrição possui identidade própria.
-- Um atleta pode ter múltiplos ciclos históricos no mesmo campeonato.
-- Há no máximo uma `PENDENTE` por atleta/campeonato.
-- Há no máximo uma `CONFIRMADA` por atleta/campeonato.
-- Aprovação por qualquer elegível resolve a pendência para todos.
-- Reprovação exige justificativa.
-- Reenvio reutiliza a pendência existente.
-- Cadastro direto autorizado nasce `CONFIRMADA`.
-- Inscrição não pertence à temporada.
-- Cancelamento é lógico e preserva histórico.
-- Existência histórica de qualquer resultado exige intervenção do proprietário para cancelar a inscrição.
-- Reinscrição cria novo registro.
-- Resultados antigos não são reativados em reinscrição.
-- `Resultado` deve referenciar `cdInscricao`.
-- Uma inscrição pode possuir vários resultados.
-- Dentro da mesma inscrição, existe no máximo um resultado ativo por combinação de categoria e classe.
-- A repetição histórica da mesma combinação é permitida apenas para preservar versionamento, reprovações, cancelamentos ou demais eventos históricos do resultado.
-
-## Próximo refinamento
-
-Refinar `Resultado`, incluindo:
-
-- identidade;
-- categoria/classe/colocação;
-- estados;
-- aprovação/reprovação pelo atleta;
-- versão concorrente;
-- cancelamento;
-- intervenção do proprietário;
-- relacionamento com a atual `PontuacaoHist`.
+- inscrição possui identidade própria;
+- atleta pode ter múltiplos ciclos históricos no mesmo campeonato;
+- no máximo uma `PENDENTE` e uma `CONFIRMADA` por atleta/campeonato;
+- inscrição não pertence à temporada;
+- aprovação por qualquer elegível resolve pendência para todos;
+- reprovação exige justificativa;
+- reenvio reutiliza pendência existente;
+- cadastro direto autorizado nasce `CONFIRMADA`;
+- criador da temporada é administrador por definição;
+- `ADMINISTRACAO` da temporada autoriza operar inscrições dos atletas daquela temporada sem vínculo próprio administrador-atleta;
+- `CONSULTA` não autoriza operações de inscrição;
+- vínculo profissional-atleta isolado não substitui administração de temporada;
+- autorização exige campeonato associado à temporada e atleta pertencente à composição dela;
+- autorização é revalidada no momento da ação;
+- cancelamento é lógico e preserva histórico;
+- existência histórica de qualquer resultado exige proprietário para cancelar inscrição;
+- reinscrição cria novo registro;
+- resultados antigos não são reativados;
+- `Resultado` referencia `cdInscricao`;
+- uma inscrição pode possuir vários resultados;
+- no máximo um resultado ativo por combinação categoria/classe dentro da inscrição.
