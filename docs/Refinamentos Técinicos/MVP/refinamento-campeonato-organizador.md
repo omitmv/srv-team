@@ -24,8 +24,11 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - O transcorrer da data final não encerra nem inativa automaticamente o campeonato.
 - Campeonato pode integrar várias temporadas via relação N:N `TemporadaCampeonato`.
 - Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato daquela temporada.
+- Alterar `TemporadaCampeonato` é alteração estrutural da temporada e somente é permitido enquanto a temporada estiver `ATIVO`.
+- Temporada `ENCERRADA` deve ser reaberta para `ATIVO` antes de vincular ou desvincular campeonato.
+- Temporada `CANCELADA` não permite alteração ordinária de sua composição de campeonatos enquanto permanecer cancelada.
 - Profissional com permissão apenas de `CONSULTA` não pode alterar `TemporadaCampeonato`.
-- O vínculo pode ser criado ou removido independentemente da existência de inscrições ou resultados.
+- O vínculo pode ser criado ou removido independentemente da existência de inscrições ou resultados, desde que o ciclo de vida da temporada permita a alteração estrutural.
 - Desvincular campeonato de uma temporada não cancela, não inativa e não altera o status de inscrições ou resultados referentes ao campeonato.
 - Categoria e classe são informadas no `Resultado`, não pré-configuradas no campeonato.
 - Para operar um campeonato já existente como profissional autorizado, o profissional deve possuir relação de administração com ao menos uma temporada à qual o campeonato esteja vinculado.
@@ -190,25 +193,34 @@ A relação entre campeonato e temporada é representada por `TemporadaCampeonat
 
 ### Autoridade
 
-Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode:
+Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato, e somente quando o ciclo de vida da própria temporada admitir alteração estrutural.
 
-- vincular um campeonato à temporada;
-- desvincular um campeonato da temporada.
+No MVP:
 
-Profissional com permissão `CONSULTA` não pode executar nenhuma das duas operações.
+- `ATIVO`: permite vincular e desvincular campeonato;
+- `ENCERRADA`: não permite alterar `TemporadaCampeonato`; deve ser reaberta para `ATIVO` antes da operação;
+- `CANCELADA`: não permite alteração ordinária de `TemporadaCampeonato` enquanto permanecer cancelada.
+
+Profissional com permissão `CONSULTA` não pode executar nenhuma dessas operações.
 
 A autorização é avaliada pelo contexto da `Temporada`, e não pela autoria do campeonato.
+
+A possibilidade de processar `Inscricao` ou `Resultado` tardio em temporada `ENCERRADA` não autoriza alteração da composição de campeonatos: fatos esportivos tardios e configuração estrutural são conceitos distintos.
 
 ### Vinculação
 
 Para vincular:
 
-- temporada deve permitir manutenção segundo seu próprio ciclo de vida;
+- temporada deve estar `ATIVO`;
 - campeonato deve estar apto a ser associado segundo seu próprio estado;
 - profissional deve possuir `ADMINISTRACAO` sobre a temporada;
 - duplicidade da mesma associação ativa deve ser impedida.
 
+Uma temporada `ENCERRADA` deve ser explicitamente reaberta para `ATIVO` antes de receber novo campeonato. A reabertura segue as regras de justificativa e auditoria definidas em `refinamento-temporada.md`.
+
 ### Desvinculação
+
+Para desvincular, a temporada também deve estar `ATIVO`.
 
 A existência de inscrições ou resultados do campeonato não impede a desvinculação.
 
@@ -521,7 +533,11 @@ Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 - acesso de consulta à temporada não concede manutenção do campeonato;
 - administrar qualquer uma das temporadas vinculadas é suficiente para autorização contextual;
 - somente administrador de temporada vincula ou desvincula campeonato daquela temporada;
-- vínculo/desvínculo independe da existência de inscrições ou resultados;
+- `TemporadaCampeonato` somente pode ser alterada enquanto a temporada estiver `ATIVO`;
+- temporada `ENCERRADA` exige reabertura para `ATIVO` antes de vincular/desvincular campeonato;
+- temporada `CANCELADA` não admite alteração ordinária de sua composição de campeonatos;
+- processamento tardio de inscrição/resultado em `ENCERRADA` não libera alteração estrutural;
+- vínculo/desvínculo independe da existência de inscrições ou resultados quando a temporada permite alteração estrutural;
 - desvincular não cancela nem inativa inscrições ou resultados;
 - desvincular remove apenas a participação do campeonato na projeção daquela temporada;
 - revincular faz resultados válidos voltarem a participar da projeção da temporada;
