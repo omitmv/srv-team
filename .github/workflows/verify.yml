@@ -32,9 +32,5 @@ jobs:
           export DB_URL='jdbc:h2:mem:srvteam;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE'
           export DB_USERNAME='sa'
           export DB_PASSWORD=''
-          export JWT_SECRET="$(python - <<'PY'
-import secrets
-print(secrets.token_urlsafe(48))
-PY
-)"
+          export JWT_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
           ./mvnw --batch-mode clean verify
