@@ -9,6 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      DB_URL: jdbc:h2:mem:ci;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+      DB_USERNAME: sa
+      DB_PASSWORD: ""
+      JWT_SECRET: ChangeThisJwtSecretKeyToASecureValue32BytesLongForCi
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
