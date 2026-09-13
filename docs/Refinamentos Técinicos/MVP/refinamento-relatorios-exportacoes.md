@@ -45,6 +45,29 @@ O relatório de campeonato não exibe pontos ou penalidades como atributo do res
 
 Um mesmo campeonato pode pertencer a múltiplas temporadas, portanto qualquer coluna de pontos sem contexto de temporada seria semanticamente incorreta.
 
+### Autorização contextual
+
+O catálogo compartilhado de campeonatos não implica catálogo público de resultados esportivos.
+
+Para usuários profissionais, a consulta do relatório de um campeonato deve ocorrer por meio de uma temporada associada que autorize o observador.
+
+Regras:
+
+- o proprietário possui acesso administrativo global ao relatório de qualquer campeonato;
+- o criador de uma temporada associada possui acesso administrativo ao relatório do campeonato no contexto dessa temporada;
+- profissional com `ADMINISTRACAO` em uma temporada associada pode consultar integralmente os dados necessários à operação daquela temporada;
+- profissional com `CONSULTA` em uma temporada associada pode consultar o campeonato, porém dados individualizados permanecem restritos aos atletas da temporada com os quais possui vínculo ativo, conforme a regra de visibilidade da temporada;
+- possuir vínculo profissional-atleta, isoladamente, não concede acesso global ao relatório do campeonato;
+- pertencer ao mesmo `Time` não concede acesso ao relatório;
+- ser o profissional que originalmente cadastrou o campeonato não concede propriedade nem acesso permanente sobre seus resultados;
+- não existe, no MVP, consulta esportiva global irrestrita de resultados de campeonatos para profissionais fora do contexto de uma temporada autorizada.
+
+Como um campeonato pode pertencer a múltiplas temporadas, o mesmo profissional pode possuir mais de um contexto válido de acesso. Basta existir ao menos uma temporada associada que lhe conceda `ADMINISTRACAO` ou `CONSULTA`, respeitando o nível de visibilidade correspondente.
+
+A autorização deve ser revalidada no momento da consulta e também no momento da exportação.
+
+Se o campeonato não estiver associado a nenhuma temporada que autorize o profissional, o fato de ele existir no catálogo compartilhado permite apenas as operações de catálogo já definidas no domínio, não a consulta de seus resultados esportivos.
+
 ### Resultados exibidos
 
 Na visão esportiva ordinária, considerar somente `Resultado APROVADO` e não cancelado.
@@ -211,6 +234,8 @@ Na temporada:
 - `CONSULTA` visualiza dados individualizados apenas dos atletas da temporada com os quais também possui vínculo ativo;
 - proprietário mantém acesso administrativo global conforme as regras do MVP.
 
+A mesma distinção é aplicada ao relatório de campeonato quando acessado por uma temporada associada.
+
 Exportações devem aplicar a mesma regra de visibilidade da consulta em tela.
 
 ## Conta de atleta cancelada
@@ -236,6 +261,8 @@ Uma exportação representa o mesmo conjunto de dados que o usuário teria autor
 
 Não criar uma autorização mais ampla apenas porque o formato é arquivo.
 
+No caso de relatório de campeonato, a exportação também exige contexto de temporada autorizado para profissionais; o proprietário permanece como exceção global.
+
 ### Data/hora de geração
 
 Toda exportação deve registrar data/hora de geração, pois rankings e interpretações são dinâmicos.
@@ -256,6 +283,7 @@ Registrar, no mínimo:
 - tipo de relatório;
 - escopo (`Campeonato` ou `Temporada`);
 - identificador do agregado consultado;
+- contexto de temporada utilizado quando o escopo for campeonato e o solicitante não for o proprietário;
 - formato;
 - data/hora da geração.
 
@@ -321,6 +349,11 @@ Podem ser adicionados posteriormente sem alterar o modelo esportivo central.
 ## Invariantes consolidadas
 
 - relatório de campeonato representa fato esportivo e não exibe pontuação universal;
+- relatório de campeonato não é consulta esportiva global pública para profissionais;
+- profissional acessa relatório de campeonato por contexto de temporada associada que lhe conceda `ADMINISTRACAO` ou `CONSULTA`;
+- `CONSULTA` mantém filtro de atletas com vínculo ativo; `ADMINISTRACAO` possui visão operacional integral da temporada;
+- proprietário possui acesso administrativo global aos relatórios de campeonato;
+- vínculo direto, `Time`, autoria do cadastro do campeonato ou mera existência no catálogo não concedem acesso global a seus resultados;
 - relatório de temporada representa interpretação derivada da temporada;
 - somente resultados aprovados/não cancelados aparecem como resultado esportivo publicado;
 - inscrição sem resultado pode aparecer como `Sem resultado`, nunca como ausência inferida;
