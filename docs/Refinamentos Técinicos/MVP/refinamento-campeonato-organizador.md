@@ -1,6 +1,6 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica em andamento; ciclo de criação, alteração, cancelamento, reativação, localização, equivalência, autorização, vínculo com temporada e semântica das datas consolidado para o MVP.
+Status: modelagem técnica consolidada para o MVP; implementação e migração pendentes.
 
 ## Objetivo
 
@@ -9,39 +9,21 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 ## Regras confirmadas
 
 - `Organizador` pertence a catálogo central administrado exclusivamente pelo proprietário.
-- Profissional pode criar campeonato diretamente, conforme regra específica de criação.
-- Campeonato criado integra catálogo compartilhado.
-- `cdCriador` é dado de auditoria e não confere propriedade exclusiva nem privilégio especial de edição.
-- Todo campeonato exige organizador ativo.
-- Todo campeonato exige país.
-- Deve informar subdivisão administrativa de primeiro nível quando aplicável ao país.
-- País e subdivisão pertencem a catálogo interno de referência baseado em códigos padronizados, preferencialmente ISO 3166 / ISO 3166-2.
-- O cadastro de campeonato não depende de API pública em tempo real.
-- `dtInicio` e `dtFim` são obrigatórias e têm finalidade informativa sobre o período do campeonato.
-- Campeonato de um único dia deve possuir `dtInicio = dtFim`.
-- Campeonato de vários dias possui `dtFim > dtInicio`.
-- As datas do campeonato não controlam automaticamente status, elegibilidade, inscrições, resultados ou pontuação.
-- O transcorrer da data final não encerra nem inativa automaticamente o campeonato.
-- Campeonato pode integrar várias temporadas via relação N:N `TemporadaCampeonato`.
-- Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato daquela temporada.
-- Alterar `TemporadaCampeonato` é alteração estrutural da temporada e somente é permitido enquanto a temporada estiver `ATIVO`.
-- Temporada `ENCERRADA` deve ser reaberta para `ATIVO` antes de vincular ou desvincular campeonato.
-- Temporada `CANCELADA` não permite alteração ordinária de sua composição de campeonatos enquanto permanecer cancelada.
-- Profissional com permissão apenas de `CONSULTA` não pode alterar `TemporadaCampeonato`.
-- O vínculo pode ser criado ou removido independentemente da existência de inscrições ou resultados, desde que o ciclo de vida da temporada permita a alteração estrutural.
-- Desvincular campeonato de uma temporada não cancela, não inativa e não altera o status de inscrições ou resultados referentes ao campeonato.
-- Categoria e classe são informadas no `Resultado`, não pré-configuradas no campeonato.
-- Para operar um campeonato já existente como profissional autorizado, o profissional deve possuir relação de administração com ao menos uma temporada à qual o campeonato esteja vinculado.
-- Relação exclusivamente de consulta com a temporada não concede autorização de manutenção do campeonato.
-- Campeonato que já teve `Inscricao` ou `Resultado` é considerado utilizado, ainda que esses registros tenham sido posteriormente cancelados.
-- Campeonato não utilizado pode ser editado diretamente por qualquer profissional autorizado.
-- Campeonato utilizado não pode ser editado diretamente por profissional; alteração cadastral exige solicitação e decisão do proprietário.
-- Toda alteração de status de campeonato exige justificativa obrigatória.
-- Se nunca tiver existido `Resultado` para o campeonato, profissional autorizado pode cancelar ou reativar diretamente.
-- Se já tiver existido ao menos um `Resultado`, cancelamento ou reativação pelo profissional exige solicitação e aprovação do proprietário.
-- A existência de lançamento é histórica: resultado posteriormente cancelado continua caracterizando campeonato com lançamento para fins de alteração de status.
-- O proprietário pode efetivar diretamente cancelamento ou reativação, sempre registrando justificativa obrigatória e auditoria.
-- Campeonato cancelado não pode ser recadastrado com nova identidade se for equivalente a registro existente.
+- Profissional pode criar campeonato diretamente; `cdCriador` é auditoria e não confere propriedade exclusiva.
+- Campeonato exige organizador ativo, país, subdivisão quando aplicável, `dtInicio` e `dtFim`.
+- `dtFim >= dtInicio`; igualdade representa campeonato de um dia.
+- Datas são informativas e não controlam automaticamente o ciclo de vida.
+- Campeonato pode integrar várias temporadas via `TemporadaCampeonato`.
+- Somente `ADMINISTRACAO` pode vincular/desvincular campeonato e apenas com temporada `ATIVO`.
+- `ENCERRADA` exige reabertura para `ATIVO`; `CANCELADA` não admite alteração estrutural ordinária.
+- Inscrições/resultados existentes não impedem desvinculação e não são alterados por ela.
+- Categoria e classe pertencem ao `Resultado`.
+- Manutenção profissional de campeonato existente deriva da administração de ao menos uma temporada vinculada.
+- Campeonato já utilizado exige aprovação do proprietário para alteração cadastral.
+- Toda alteração de status exige justificativa e auditoria.
+- Havendo qualquer `Resultado` histórico, alteração de status solicitada por profissional exige aprovação do proprietário.
+- Campeonato cancelado equivalente não pode ser recadastrado.
+- Reativação deve revalidar equivalência e é bloqueada se já existir outro campeonato `ATIVO` semanticamente equivalente.
 
 ## Organizador
 
@@ -53,13 +35,9 @@ Organizador
  └── auditoria
 ```
 
-Somente o proprietário pode criar, editar, inativar ou reativar organizador.
-
-Organizador já utilizado não deve ser fisicamente excluído. Inativação preserva histórico e impede seleção em novos campeonatos.
+Somente o proprietário cria, edita, inativa ou reativa organizador. Organizador utilizado não é excluído fisicamente; inativação preserva histórico e impede novas seleções.
 
 ## Catálogo geográfico
-
-### País
 
 ```text
 Pais
@@ -69,11 +47,7 @@ Pais
  ├── dsNome
  ├── flAtivo
  └── auditoria técnica
-```
 
-### Subdivisão administrativa
-
-```text
 Subdivisao
  ├── cdSubdivisao
  ├── cdPais
@@ -83,13 +57,7 @@ Subdivisao
  └── auditoria técnica
 ```
 
-Regras:
-
-- catálogo interno e pré-carregado;
-- profissional não cadastra país/subdivisão durante o fluxo de campeonato;
-- indisponibilidade externa não bloqueia operação;
-- país/subdivisão inativo não pode ser selecionado em novo campeonato, mas permanece válido para histórico;
-- `cdSubdivisao` deve pertencer ao `cdPais` informado.
+O catálogo é interno e pré-carregado, preferencialmente baseado em ISO 3166/3166-2. País/subdivisão inativos não podem ser selecionados em novos campeonatos, mas permanecem válidos historicamente. A subdivisão deve pertencer ao país informado.
 
 ## Campeonato
 
@@ -112,448 +80,154 @@ Campeonato
  └── auditoria
 ```
 
-Estados mínimos:
+Estados: `ATIVO` e `CANCELADO`.
 
-- `ATIVO`
-- `CANCELADO`
+`dtInicio` e `dtFim` são obrigatórias. `dtFim` nunca pode ser anterior a `dtInicio`; igualdade representa evento de um dia. O término da data não muda automaticamente o estado, não cancela inscrições/resultados e não controla pontuação.
 
-### Datas do campeonato
+Localização exige país, subdivisão quando aplicável e permite `dsLocal` livre/opcional. `dsLocal` não participa da identidade semântica.
 
-`dtInicio` e `dtFim` são obrigatórias e representam somente o período informado do evento.
+Pode-se manter fisicamente `cdCompeticao`/`tbCompeticao` no MVP para reduzir impacto de migração, tratando semanticamente a entidade como `Campeonato`. O campo legado `federacao` deixa de ser autoritativo; campeonato referencia `Organizador`.
 
-Regras:
+## Autorização profissional
 
-- `dtInicio` obrigatória;
-- `dtFim` obrigatória;
-- campeonato de um dia: `dtInicio = dtFim`;
-- campeonato de vários dias: `dtFim > dtInicio`;
-- `dtFim` nunca pode ser anterior a `dtInicio`;
-- as datas não determinam transição automática de estado;
-- campeonato cuja `dtFim` já passou não se torna automaticamente encerrado, inativo ou cancelado;
-- não existe estado `FINALIZADO` derivado automaticamente da data no MVP;
-- datas não cancelam inscrições nem resultados;
-- datas não habilitam ou desabilitam pontuação automaticamente;
-- a validade esportiva para uma temporada continua sendo determinada pelas regras da temporada, vínculo `TemporadaCampeonato`, estado do campeonato e demais critérios de elegibilidade;
-- alteração das datas segue as mesmas regras gerais de alteração cadastral do campeonato, independentemente de a data do evento já ter ocorrido.
+Um profissional é autorizado a manter campeonato existente quando administra ao menos uma temporada que possua associação ativa com ele. `CONSULTA`, pertencer ao mesmo `Time`, possuir vínculo com atleta ou ser o criador do campeonato não concede isoladamente manutenção global.
 
-Em consequência, o estado `ATIVO` deve ser entendido como estado administrativo do cadastro, e não como indicação de que o evento está acontecendo na data atual.
+O proprietário possui autoridade administrativa global.
 
-Regras de localização:
-
-- `cdPais` obrigatório;
-- `cdSubdivisao` obrigatório quando aplicável;
-- `dsLocal` opcional e livre para ginásio, centro de eventos, endereço etc.;
-- `dsLocal` não participa da identidade semântica.
-
-Pode-se manter fisicamente `cdCompeticao`/`tbCompeticao` no MVP para reduzir impacto de migração, tratando semanticamente a entidade como Campeonato.
-
-O campo legado `federacao` deixa de ser fonte autoritativa; `Campeonato` referencia `Organizador`.
-
-## Autorização profissional sobre campeonato
-
-A autorização de manutenção de um campeonato existente é derivada das temporadas às quais ele está vinculado.
-
-Um profissional é considerado **autorizado para o campeonato** quando:
-
-1. possui relação administrativa válida com pelo menos uma `Temporada`;
-2. essa temporada possui associação ativa com o `Campeonato` por `TemporadaCampeonato`;
-3. a relação do profissional com a temporada concede capacidade de administração, e não apenas consulta.
-
-Em termos conceituais:
-
-```text
-Profissional
-    |
-    | administra
-    v
-Temporada
-    |
-    | TemporadaCampeonato
-    v
-Campeonato
-```
-
-Não é necessário que o profissional seja o `cdCriador` do campeonato.
-
-Se o campeonato estiver associado a várias temporadas, basta que o profissional administre ao menos uma delas para ser considerado autorizado no contexto do campeonato.
-
-A mera existência do profissional no sistema, pertencer à mesma equipe de outro profissional, possuir vínculo com algum atleta ou ter acesso somente de consulta a uma temporada não concede, isoladamente, autorização para manutenção do campeonato.
-
-O proprietário permanece com autoridade administrativa global, independentemente de associação com temporada.
-
-### Campeonato ainda não associado a temporada
-
-A regra acima governa a manutenção de campeonato já associado. A criação inicial continua permitida ao profissional conforme a autorização geral de criação do MVP, pois antes de existir o campeonato ainda não há `TemporadaCampeonato` que possa ser usada como origem de autorização.
-
-Após a criação, operações profissionais que dependam de autorização contextual devem ser avaliadas pelas associações do campeonato com temporadas.
+A criação inicial é exceção: profissional pode criar campeonato antes de existir qualquer `TemporadaCampeonato`. Depois da criação, operações contextuais dependem das associações com temporadas.
 
 ## Associação Campeonato ↔ Temporada
 
-A relação entre campeonato e temporada é representada por `TemporadaCampeonato`.
+`TemporadaCampeonato` é configuração estrutural da temporada.
 
-### Autoridade
+Somente `ADMINISTRACAO` pode vincular/desvincular e o estado deve ser:
 
-Somente profissional com permissão de `ADMINISTRACAO` sobre a temporada pode vincular ou desvincular campeonato, e somente quando o ciclo de vida da própria temporada admitir alteração estrutural.
+- `ATIVO`: alteração permitida;
+- `ENCERRADA`: alteração bloqueada até reabertura para `ATIVO`;
+- `CANCELADA`: alteração ordinária bloqueada enquanto cancelada.
 
-No MVP:
+Permitir `Inscricao` ou `Resultado` tardio em `ENCERRADA` não libera alteração estrutural.
 
-- `ATIVO`: permite vincular e desvincular campeonato;
-- `ENCERRADA`: não permite alterar `TemporadaCampeonato`; deve ser reaberta para `ATIVO` antes da operação;
-- `CANCELADA`: não permite alteração ordinária de `TemporadaCampeonato` enquanto permanecer cancelada.
+Para vincular, campeonato deve estar apto segundo seu próprio estado, temporada deve estar `ATIVO`, profissional deve ter `ADMINISTRACAO` e associação ativa duplicada deve ser impedida.
 
-Profissional com permissão `CONSULTA` não pode executar nenhuma dessas operações.
+Para desvincular, temporada também deve estar `ATIVO`. Inscrições/resultados não impedem a operação. Desvinculação não cancela, inativa ou modifica esses registros; apenas retira o campeonato da projeção da temporada e força recálculo do ranking. Revinculação faz resultados válidos voltarem a ser interpretados segundo as regras vigentes da temporada.
 
-A autorização é avaliada pelo contexto da `Temporada`, e não pela autoria do campeonato.
+Vínculos/desvínculos devem manter histórico auditável com temporada, campeonato, responsável, data/hora e operação.
 
-A possibilidade de processar `Inscricao` ou `Resultado` tardio em temporada `ENCERRADA` não autoriza alteração da composição de campeonatos: fatos esportivos tardios e configuração estrutural são conceitos distintos.
+## Criação e equivalência
 
-### Vinculação
-
-Para vincular:
-
-- temporada deve estar `ATIVO`;
-- campeonato deve estar apto a ser associado segundo seu próprio estado;
-- profissional deve possuir `ADMINISTRACAO` sobre a temporada;
-- duplicidade da mesma associação ativa deve ser impedida.
-
-Uma temporada `ENCERRADA` deve ser explicitamente reaberta para `ATIVO` antes de receber novo campeonato. A reabertura segue as regras de justificativa e auditoria definidas em `refinamento-temporada.md`.
-
-### Desvinculação
-
-Para desvincular, a temporada também deve estar `ATIVO`.
-
-A existência de inscrições ou resultados do campeonato não impede a desvinculação.
-
-Desvincular `Campeonato` de `Temporada` significa apenas encerrar/remover a relação estrutural `TemporadaCampeonato`.
-
-A operação **não** deve:
-
-- cancelar `Inscricao`;
-- cancelar `Resultado`;
-- inativar `Resultado`;
-- alterar `situacaoResultado`;
-- alterar `status` de `Resultado`;
-- apagar histórico esportivo do campeonato.
-
-Os lançamentos continuam existindo normalmente vinculados à `Inscricao` e ao `Campeonato`.
-
-### Efeito sobre pontuação/ranking da temporada
-
-A associação `TemporadaCampeonato` define se aquele campeonato participa da composição esportiva da temporada.
-
-Portanto, ao desvincular um campeonato:
-
-- os resultados permanecem íntegros e com seus estados originais;
-- deixam de ser considerados na projeção de pontuação/ranking daquela temporada enquanto não houver vínculo ativo;
-- rankings da temporada devem ser recalculados;
-- nenhuma mutação deve ser feita nos próprios resultados.
-
-Se o campeonato for novamente vinculado à mesma temporada, resultados já existentes e válidos voltam a ser considerados pela projeção da temporada, conforme as demais regras de elegibilidade e pontuação vigentes.
-
-### Auditoria
-
-Registrar para cada vínculo/desvínculo:
-
-- temporada;
-- campeonato;
-- responsável;
-- data/hora;
-- operação executada;
-- histórico suficiente para reconstrução da associação.
-
-Recomendação técnica: preferir vínculo lógico/auditável em vez de apagar definitivamente o histórico da relação.
-
-## Criação
-
-Profissional com permissão geral de criação de campeonato pode criar diretamente, sem aprovação prévia do proprietário.
-
-Fluxo:
-
-1. informa nome, `dtInicio`, `dtFim` e localização;
-2. valida presença obrigatória de `dtInicio` e `dtFim` e a regra `dtFim >= dtInicio`;
-3. seleciona organizador ativo;
-4. seleciona país ativo;
-5. seleciona subdivisão válida quando aplicável;
-6. sistema valida campos e equivalência;
-7. verifica campeonatos ativos e cancelados equivalentes;
-8. inexistindo conflito, cria no catálogo compartilhado.
-
-A criação não exige relação prévia com temporada porque o campeonato ainda não existe para ser associado. `cdCriador` registra autoria para auditoria, sem gerar propriedade exclusiva futura.
-
-## Equivalência e duplicidade
-
-Identidade semântica aproximada no MVP:
+Identidade semântica aproximada:
 
 ```text
 (nomeNormalizado, cdOrganizador, cdPais, cdSubdivisao, dtInicio)
 ```
 
-Quando não houver subdivisão aplicável, `cdSubdivisao` pode ser nulo e deve ser comparado de forma consistente.
+Quando subdivisão não for aplicável, `cdSubdivisao` pode ser nulo e deve ser comparado consistentemente. Normalização considera trim, case-insensitive, espaços repetidos e normalização segura de acentuação/pontuação. `dtFim` e `dsLocal` não participam da equivalência.
 
-Normalização do nome deve considerar ao menos:
+Na criação:
 
-- trim;
-- comparação case-insensitive;
-- normalização de espaços repetidos;
-- normalização segura de acentuação/pontuação.
+- equivalente `ATIVO`: bloquear e direcionar ao existente;
+- equivalente `CANCELADO`: bloquear recadastro e direcionar ao fluxo de reativação;
+- inexistente: permitir criação.
 
-`dtFim` e `dsLocal` não participam da equivalência.
+A equivalência é invariante de domínio e precisa de proteção contra concorrência; não deve depender apenas de comparação textual na aplicação.
 
-Comportamento:
+## Alteração cadastral
 
-- equivalente `ATIVO` -> bloquear novo cadastro e direcionar ao existente;
-- equivalente `CANCELADO` -> bloquear recadastro e oferecer solicitação de reativação;
-- inexistente -> permitir criação.
+Campeonato é considerado **utilizado** a partir da existência histórica de qualquer `Inscricao` ou `Resultado`, mesmo posteriormente cancelado.
 
-A equivalência é invariante de domínio e não deve depender exclusivamente de uma `UNIQUE CONSTRAINT` textual simples. A implementação deve proteger também contra concorrência.
+### Não utilizado
 
-## Alteração de campeonato
+Profissional autorizado pode editar diretamente. A alteração deve ser auditada e revalidar organizador, localização, datas e equivalência.
 
-### Campeonato não utilizado
+### Utilizado
 
-Enquanto nunca tiver existido `Inscricao` nem `Resultado` associado:
+Profissional autorizado não altera diretamente. Deve criar `SolicitacaoAlteracaoCampeonato` com justificativa, snapshot antes/depois e versão-base. Somente proprietário decide. No máximo uma solicitação pendente por campeonato.
 
-- qualquer profissional autorizado para o campeonato pode editar diretamente;
-- autorização deriva de relação administrativa com ao menos uma temporada vinculada ao campeonato;
-- não é necessário ser o criador;
-- `cdCriador` não concede exclusividade;
-- cada edição deve ser auditada com responsável, data/hora e valores alterados;
-- toda alteração deve revalidar organizador, localização, datas e equivalência antes de persistir;
-- alteração não pode produzir duplicidade com outro campeonato ativo ou cancelado equivalente.
-
-### Campeonato utilizado
-
-A partir do momento em que já tiver existido ao menos uma `Inscricao` ou `Resultado`, a condição de utilizado é histórica e irreversível para fins de alteração cadastral.
-
-Profissional autorizado não altera diretamente. Qualquer alteração cadastral gera solicitação ao proprietário.
-
-```text
-Profissional autorizado propõe alteração
-        |
-        | justificativa obrigatória
-        v
-Solicitação PENDENTE
-        |
-        +--> notificação ao proprietário
-        v
-Proprietário analisa antes/depois
-        |
-   +----+----+
-   |         |
-aprova     reprova
-   |         |
-aplica    mantém cadastro atual
-```
-
-### Solicitação de alteração
-
-```text
-SolicitacaoAlteracaoCampeonato
- ├── cdSolicitacao
- ├── cdCampeonato
- ├── cdSolicitante
- ├── status
- ├── dadosAtuais
- ├── dadosPropostos
- ├── camposAlterados
- ├── justificativa
- ├── nrVersaoBaseCampeonato
- ├── dtSolicitacao
- ├── cdResponsavelDecisao
- ├── dtDecisao
- └── motivoReprovacao
-```
-
-Status:
-
-- `PENDENTE`
-- `APROVADA`
-- `REPROVADA`
-
-Regras:
-
-- solicitante deve estar autorizado para o campeonato no momento da solicitação;
-- justificativa obrigatória;
-- snapshot suficiente para comparação;
-- no máximo uma solicitação `PENDENTE` por campeonato;
-- somente proprietário decide;
-- aprovação revalida estado, versão, organizador, localização, datas e equivalência;
-- alteração concorrente não pode ser sobrescrita silenciosamente;
-- recomendar `@Version` em `Campeonato` e guardar versão-base na solicitação.
+Na aprovação, revalidar estado, versão, organizador, localização, datas e equivalência. Alteração concorrente não pode ser sobrescrita silenciosamente.
 
 ## Cancelamento e reativação
 
-A alteração de status do campeonato é sempre auditada e exige justificativa obrigatória, independentemente de quem a execute.
-
-Transições permitidas:
+Transições:
 
 ```text
 ATIVO -> CANCELADO
 CANCELADO -> ATIVO
 ```
 
-### Definição de campeonato com lançamento
+Toda transição exige justificativa, responsável, data/hora e auditoria.
 
-Para este fluxo, considera-se que o campeonato **possui lançamento** quando já tiver existido ao menos um `Resultado` associado a qualquer `Inscricao` daquele campeonato.
+### Existência histórica de lançamento
 
-A verificação é histórica:
+Campeonato possui lançamento quando já existiu qualquer `Resultado` associado a qualquer inscrição. `PENDENTE_APROVACAO`, `APROVADO` e `CANCELADO` contam historicamente. Essa condição nunca é apagada.
 
-- `Resultado` pendente conta como lançamento;
-- `Resultado` aprovado conta como lançamento;
-- `Resultado` cancelado continua contando como lançamento;
-- correções ou versões históricas não apagam essa condição.
+### Sem lançamento histórico
 
-Assim, depois que o campeonato tiver o primeiro lançamento, ele permanece definitivamente classificado como campeonato **com lançamento** para fins de autorização de alteração de status.
+Profissional autorizado pode cancelar ou reativar diretamente, sempre com justificativa e auditoria. Proprietário também pode executar diretamente.
 
-### Campeonato sem lançamento
+### Com lançamento histórico
 
-Quando nunca tiver existido `Resultado` relacionado ao campeonato:
+Profissional autorizado solicita alteração de status e somente proprietário aprova/reprova. O proprietário pode alterar diretamente, sempre com justificativa e auditoria equivalente.
 
-- profissional autorizado pode cancelar diretamente;
-- profissional autorizado pode reativar diretamente;
-- justificativa é obrigatória;
-- responsável, data/hora, estado anterior, novo estado e justificativa devem ser auditados;
-- proprietário também pode executar diretamente, igualmente com justificativa obrigatória.
+Pode-se utilizar entidade única `SolicitacaoAlteracaoStatusCampeonato`, contendo campeonato, solicitante, status origem/destino, justificativa, status da solicitação, datas e decisão. No máximo uma solicitação pendente por campeonato e a decisão deve revalidar o estado atual.
 
-Não é necessária solicitação de aprovação do proprietário nesse cenário.
+## Revalidação de equivalência na reativação
 
-### Campeonato com lançamento
+A transição `CANCELADO -> ATIVO` deve sempre revalidar a identidade semântica do campeonato imediatamente antes de efetivar a reativação.
 
-Quando já tiver existido ao menos um `Resultado`:
-
-- profissional autorizado não pode alterar o status diretamente;
-- deve criar solicitação com justificativa obrigatória;
-- somente o proprietário aprova ou reprova a solicitação;
-- o status permanece inalterado enquanto a solicitação estiver `PENDENTE`;
-- aprovação efetiva a transição solicitada;
-- reprovação mantém o estado atual;
-- proprietário pode efetuar diretamente a mudança administrativa, mas deve registrar justificativa obrigatória e auditoria equivalente.
-
-O fluxo é o mesmo tanto para cancelamento quanto para reativação.
-
-### Solicitação de alteração de status
-
-Para evitar duplicação estrutural entre cancelamento e reativação, a implementação pode utilizar uma entidade conceitual única:
+Se existir **outro** campeonato `ATIVO` semanticamente equivalente segundo:
 
 ```text
-SolicitacaoAlteracaoStatusCampeonato
- ├── cdSolicitacao
- ├── cdCampeonato
- ├── cdSolicitante
- ├── statusOrigem
- ├── statusDestino
- ├── justificativa
- ├── statusSolicitacao
- ├── dtSolicitacao
- ├── cdResponsavelDecisao
- ├── dtDecisao
- └── motivoReprovacao
+(nomeNormalizado, cdOrganizador, cdPais, cdSubdivisao, dtInicio)
 ```
 
-`statusSolicitacao`:
+a reativação deve ser bloqueada.
 
-- `PENDENTE`
-- `APROVADA`
-- `REPROVADA`
+A regra vale independentemente de quem execute a operação:
 
-Regras:
+- reativação direta por profissional autorizado;
+- aprovação pelo proprietário de solicitação de reativação;
+- reativação administrativa direta pelo proprietário.
 
-- solicitante deve estar autorizado para o campeonato;
-- justificativa obrigatória;
-- origem e destino devem corresponder a uma transição válida;
-- permitir no máximo uma solicitação de alteração de status `PENDENTE` por campeonato;
-- somente proprietário decide;
-- decisão deve revalidar o estado atual para evitar aplicar solicitação obsoleta.
+O fato de o campeonato cancelado ser mais antigo, possuir inscrições/resultados ou ter sido originalmente criado antes do campeonato ativo não concede preferência automática nem permite duplicidade ativa.
 
-A adoção de entidade única é recomendação técnica; funcionalmente, cancelamento e reativação seguem exatamente a mesma regra de aprovação condicionada à existência histórica de lançamento.
+O conflito deve ser resolvido administrativamente antes da reativação. O MVP não faz merge automático de campeonatos, inscrições ou resultados e não transfere histórico entre identidades.
 
-### Efeitos do cancelamento
+A validação deve ocorrer no momento efetivo da transição, não apenas quando a solicitação for criada, protegendo também contra concorrência entre reativações/criações simultâneas.
 
-O cancelamento é lógico.
+## Efeitos do cancelamento
 
-Ao cancelar:
+Cancelamento é lógico. Preserva inscrições e resultados, impede novas inscrições e associações ordinárias, suspende efeito esportivo dos resultados aprovados, mantém pendências armazenadas e força recálculo dos rankings afetados. Não altera artificialmente o status dos resultados.
 
-- preserva inscrições e resultados;
-- impede novas inscrições ordinárias;
-- impede novas associações ordinárias com temporadas;
-- resultados aprovados deixam de produzir efeito esportivo enquanto cancelado;
-- resultados pendentes permanecem armazenados, porém inativos para operação esportiva ordinária;
-- não altera artificialmente o status próprio dos resultados;
-- rankings afetados devem ser recalculados.
+## Efeitos da reativação
 
-### Efeitos da reativação
-
-Ao reativar:
-
-- preserva a mesma identidade do campeonato;
-- inscrições permanecem vinculadas;
-- resultados permanecem vinculados;
-- resultados `APROVADO` voltam a produzir efeito se ainda válidos;
-- resultados `PENDENTE_APROVACAO` retornam ao fluxo ordinário;
-- resultados cancelados pelo próprio fluxo permanecem cancelados;
-- rankings aplicáveis são recalculados.
+Reativação preserva a mesma identidade. Após passar pela revalidação de equivalência, inscrições/resultados permanecem vinculados; resultados `APROVADO` voltam a produzir efeito quando elegíveis; `PENDENTE_APROVACAO` retorna ao fluxo ordinário; resultados cancelados continuam cancelados; rankings aplicáveis são recalculados.
 
 ## Auditoria
 
-Registrar historicamente:
+Preservar historicamente criação, edições diretas, responsáveis, temporadas usadas como contexto de autorização, vínculos/desvínculos, solicitações cadastrais e de status, justificativas, decisões, antes/depois, cancelamentos, reativações e respectivos responsáveis/datas.
 
-- criação;
-- edições diretas de campeonato não utilizado;
-- responsável por cada edição direta;
-- temporadas que fundamentaram autorização administrativa quando relevante;
-- vínculos e desvínculos com temporadas;
-- solicitações de alteração cadastral;
-- solicitações de alteração de status;
-- justificativas obrigatórias de cancelamento e reativação, inclusive quando executados diretamente;
-- dados atuais e propostos;
-- decisões do proprietário;
-- antes/depois;
-- cancelamentos;
-- reativações;
-- responsáveis e datas.
+Tentativas de reativação rejeitadas por colisão semântica devem ser observáveis tecnicamente; quando houver solicitação formal, a impossibilidade de aprovação deve ficar explícita no fluxo administrativo.
 
 ## Categorias e classes
 
-Campeonato não mantém coleção pré-configurada de categorias/classes.
-
-A combinação é registrada em `Resultado`.
-
-Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
+Campeonato não mantém coleção pré-configurada de categorias/classes. A combinação é registrada em `Resultado`. Não criar `CampeonatoCategoria` ou `CampeonatoClasse` no MVP.
 
 ## Invariantes consolidadas
 
-- campeonato é compartilhado;
-- criador é auditoria, não proprietário exclusivo;
-- `dtInicio` e `dtFim` são obrigatórias;
-- datas do campeonato são informativas e não dirigem automaticamente o ciclo de vida;
-- campeonato de um dia exige `dtInicio = dtFim`;
-- campeonato de vários dias exige `dtFim > dtInicio`;
-- terminar a data do campeonato não muda automaticamente seu estado;
-- autorização profissional sobre campeonato existente deriva de relação administrativa com ao menos uma temporada vinculada ao campeonato;
-- acesso de consulta à temporada não concede manutenção do campeonato;
-- administrar qualquer uma das temporadas vinculadas é suficiente para autorização contextual;
-- somente administrador de temporada vincula ou desvincula campeonato daquela temporada;
-- `TemporadaCampeonato` somente pode ser alterada enquanto a temporada estiver `ATIVO`;
-- temporada `ENCERRADA` exige reabertura para `ATIVO` antes de vincular/desvincular campeonato;
-- temporada `CANCELADA` não admite alteração ordinária de sua composição de campeonatos;
-- processamento tardio de inscrição/resultado em `ENCERRADA` não libera alteração estrutural;
-- vínculo/desvínculo independe da existência de inscrições ou resultados quando a temporada permite alteração estrutural;
-- desvincular não cancela nem inativa inscrições ou resultados;
-- desvincular remove apenas a participação do campeonato na projeção daquela temporada;
-- revincular faz resultados válidos voltarem a participar da projeção da temporada;
-- qualquer profissional autorizado pode editar diretamente campeonato não utilizado;
-- campeonato utilizado exige solicitação de alteração cadastral ao proprietário;
-- a condição de utilizado é histórica;
-- toda alteração de status exige justificativa;
-- campeonato sem qualquer lançamento histórico pode ser cancelado ou reativado diretamente por profissional autorizado;
-- campeonato com qualquer lançamento histórico exige aprovação do proprietário para alteração de status solicitada por profissional;
-- lançamento cancelado continua caracterizando existência histórica de lançamento;
-- proprietário pode alterar status diretamente, sempre com justificativa obrigatória e auditoria;
-- campeonato exige organizador, país e subdivisão quando aplicável;
+- campeonato é compartilhado e criador é apenas auditoria;
+- datas são obrigatórias, informativas e não dirigem automaticamente o ciclo de vida;
+- autorização profissional sobre campeonato existente deriva de administração de temporada vinculada;
+- somente administrador altera `TemporadaCampeonato` e apenas em temporada `ATIVO`;
+- `ENCERRADA` exige reabertura para alteração estrutural; `CANCELADA` bloqueia alteração ordinária;
+- desvinculação não modifica inscrições/resultados e apenas altera a projeção da temporada;
+- campeonato utilizado exige aprovação do proprietário para alteração cadastral;
+- toda alteração de status exige justificativa e auditoria;
+- existência histórica de resultado condiciona alteração de status profissional à aprovação do proprietário;
 - equivalência usa nome normalizado + organizador + país + subdivisão + data inicial;
-- local detalhado e data final não fazem parte da identidade;
-- cancelamento é lógico;
-- campeonato cancelado equivalente não pode ser recadastrado;
-- inscrições e resultados são preservados no cancelamento;
-- categoria/classe pertencem ao `Resultado`, não ao `Campeonato`;
-- inscrição pertence ao campeonato, não à temporada.
+- não pode existir reativação que produza dois campeonatos `ATIVO` semanticamente equivalentes;
+- equivalência é revalidada no momento efetivo da reativação e deve ser protegida contra concorrência;
+- conflito de equivalência não provoca merge ou transferência automática de histórico;
+- cancelamento é lógico e preserva inscrições/resultados;
+- categoria/classe pertencem ao `Resultado`;
+- `Inscricao` pertence ao campeonato, não à temporada.
