@@ -147,7 +147,45 @@ Para `CLASSIFICADO`, a colocação deve ser única em:
 (cdCampeonato, cdCategoria, cdClasse, colocacao)
 ```
 
-Não confundir com empate no ranking da temporada, que é permitido.
+A unicidade é aplicada desde o lançamento do resultado, e não somente após a aprovação do atleta.
+
+Para essa restrição, são considerados resultados `CLASSIFICADO` nos estados:
+
+- `PENDENTE_APROVACAO`;
+- `APROVADO`.
+
+Portanto, um resultado `PENDENTE_APROVACAO` reserva temporariamente sua colocação no campeonato/categoria/classe. Enquanto ele permanecer ativo, outro atleta não pode receber a mesma colocação nesse conjunto esportivo.
+
+Exemplo:
+
+```text
+Atleta A -> 1º / PENDENTE_APROVACAO
+Atleta B tenta lançar -> 1º
+                         X conflito: colocação já reservada
+```
+
+Se o atleta reprovar o resultado ou se o resultado for cancelado administrativamente, o resultado passa para `CANCELADO` e a colocação é liberada para novo lançamento.
+
+A edição de resultado pendente também deve validar a colocação de destino antes de efetivar a alteração. Se o profissional alterar `2º` para `1º` e já existir outro `PENDENTE_APROVACAO` ou `APROVADO` ocupando `1º`, a edição deve ser rejeitada.
+
+A proteção deve ser transacional e resistente a concorrência. Duas requisições simultâneas tentando reservar a mesma colocação não podem produzir dois resultados ativos com a mesma chave esportiva.
+
+Conceitualmente, a restrição é:
+
+```text
+UNIQUE enquanto status IN (PENDENTE_APROVACAO, APROVADO)
+(
+  cdCampeonato,
+  cdCategoria,
+  cdClasse,
+  colocacao
+)
+PARA situacaoResultado = CLASSIFICADO
+```
+
+A implementação física pode usar a estratégia compatível com o banco utilizado; a regra de domínio é obrigatória independentemente da solução de persistência.
+
+Não confundir com empate no ranking da temporada, que continua permitido.
 
 ### Colocações não informadas
 
@@ -180,6 +218,8 @@ PENDENTE_APROVACAO
 
 Somente `APROVADO` produz efeito esportivo. O atleta aprova categoria, classe, situação e colocação quando aplicável; não aprova a regra de pontuação da temporada.
 
+A transição `PENDENTE_APROVACAO -> APROVADO` não precisa reservar novamente a colocação, pois ela já foi reservada no lançamento. Ainda assim, as invariantes devem ser revalidadas na transação de aprovação para proteção contra inconsistências ou alterações concorrentes.
+
 ## Validade esportiva
 
 Um resultado produz efeito quando estiver `APROVADO` e for elegível para a temporada analisada conforme as regras de `Temporada`.
@@ -200,6 +240,8 @@ A edição deve:
 
 - manter `cdResultado`;
 - atualizar dados esportivos permitidos;
+- validar novamente unicidade de colocação quando `CLASSIFICADO` ou quando a edição passar a ser `CLASSIFICADO`;
+- liberar a colocação anterior quando ela deixar de pertencer ao resultado ativo após alteração válida;
 - incrementar `nrVersao`;
 - registrar responsável/data;
 - invalidar aprovação vinculada a versão anterior;
@@ -228,7 +270,7 @@ Toda intervenção exige justificativa obrigatória, auditoria integral e não g
 
 ### Correção direta
 
-Pode alterar categoria, classe, situação e colocação, respeitando invariantes. Mantém `cdResultado`, incrementa `nrVersao`, mantém `APROVADO` e recalcula projeções afetadas.
+Pode alterar categoria, classe, situação e colocação, respeitando invariantes, inclusive a unicidade da colocação. Mantém `cdResultado`, incrementa `nrVersao`, mantém `APROVADO` e recalcula projeções afetadas.
 
 ### Cancelamento administrativo
 
@@ -236,7 +278,7 @@ Pode alterar categoria, classe, situação e colocação, respeitando invariante
 APROVADO -> CANCELADO
 ```
 
-Preserva histórico, remove efeito esportivo e libera combinação para novo lançamento.
+Preserva histórico, remove efeito esportivo e libera combinação para novo lançamento. Quando `CLASSIFICADO`, também libera a colocação anteriormente reservada no campeonato/categoria/classe.
 
 ## Reprovação pelo atleta
 
@@ -245,7 +287,8 @@ Ao reprovar:
 1. `status = CANCELADO`;
 2. registrar atleta, data e motivo;
 3. preservar registro;
-4. liberar `(cdInscricao, cdCategoria, cdClasse)` para novo lançamento.
+4. liberar `(cdInscricao, cdCategoria, cdClasse)` para novo lançamento;
+5. se `CLASSIFICADO`, liberar também a colocação no campeonato/categoria/classe.
 
 ## Controle de versão e concorrência
 
@@ -253,7 +296,7 @@ Novo resultado nasce `nrVersao = 1`.
 
 Alteração de categoria, classe, situação ou colocação incrementa versão. Aprovação/reprovação deve informar a versão visualizada e falhar se desatualizada.
 
-Usar controle otimista, preferencialmente JPA `@Version`.
+Usar controle otimista, preferencialmente JPA `@Version`, para concorrência sobre o mesmo resultado. A unicidade de colocação exige adicionalmente proteção transacional no conjunto campeonato/categoria/classe, pois `@Version` isoladamente não impede dois resultados diferentes de reservarem simultaneamente a mesma colocação.
 
 ```text
 nrVersao    = versão funcional
@@ -267,6 +310,8 @@ Não realizar merge implícito. Conflito recomendado: `409 Conflict`.
 Para `(cdInscricao, cdCategoria, cdClasse)`, no máximo um resultado em `PENDENTE_APROVACAO` ou `APROVADO`.
 
 `CANCELADO` libera a combinação. A regra independe de `situacaoResultado`.
+
+Para `CLASSIFICADO`, existe adicionalmente no máximo um resultado `PENDENTE_APROVACAO` ou `APROVADO` para `(cdCampeonato, cdCategoria, cdClasse, colocacao)`.
 
 ## Histórico funcional
 
@@ -301,6 +346,10 @@ AUSENTE -> TemporadaPenalidade.AUSENCIA atual
 - situação é sempre lançada manualmente;
 - não inferir ausência/desclassificação;
 - não existe empate de colocação no campeonato/categoria/classe;
+- unicidade da colocação vale para `PENDENTE_APROVACAO` e `APROVADO`;
+- resultado pendente `CLASSIFICADO` reserva sua colocação até aprovação, reprovação/cancelamento ou alteração válida;
+- conflito de colocação é bloqueado já no lançamento/edição, não postergado para aprovação;
+- proteção de unicidade deve ser transacional e resistente a concorrência;
 - posições não utilizadas podem não ser lançadas;
 - todo lançamento nasce `PENDENTE_APROVACAO`;
 - todas as situações usam o mesmo fluxo de aprovação do atleta;
