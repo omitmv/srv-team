@@ -1,0 +1,2 @@
+-- No-op migration kept to preserve the pre-existing version ordering in the repository.
+-- The baseline migration already creates tbPontuacao.pontuacao as DECIMAL(10,3).
