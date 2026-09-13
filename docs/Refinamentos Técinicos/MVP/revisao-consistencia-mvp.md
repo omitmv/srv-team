@@ -1,67 +1,172 @@
 # Revisão de consistência — MVP de pontuação
 
-Referência: [especificação v0.2](mvp-pontuacao.md). Revisão documental sobre a conversa e o documento consolidado; não inclui execução da aplicação, validação do banco ou implantação.
+Referência: [mvp-pontuacao.md](mvp-pontuacao.md).
 
-## Resultado
+Status: revisão reconsolidada após o refinamento dos principais agregados do domínio.
 
-A base funcional permite iniciar o desenho técnico dos fluxos já definidos. Ainda não é uma especificação totalmente fechada para implementar de ponta a ponta. Foram harmonizadas regras antigas, acrescentadas condições transversais e organizadas 14 decisões funcionais abertas. Essas decisões não representam 14 funcionalidades novas; são limites ou detalhes de funcionalidades existentes.
+## Objetivo
 
-Não atribuímos novo percentual: a contagem de perguntas ou de cenários de aceite não mede percentual concluído. Após D15, a especificação possui 50 cenários iniciais e 9 decisões restantes (D06–D14), sem alegação de testes implementados ou executados.
+Este documento registra a consistência entre a especificação geral do MVP e os refinamentos técnicos específicos. Os refinamentos específicos são a fonte detalhada para implementação; `mvp-pontuacao.md` deve permanecer como visão consolidada do produto.
 
-## Correções realizadas sem pedir decisões novamente
+## Documentos autoritativos por agregado
 
-| Achado | Correção na especificação |
-|---|---|
-| Matriz e regras de ocultação do proprietário divergiam | D15 substituiu a restrição anterior: proprietário consulta e administra dados e pendências de atletas cancelados |
-| Elegibilidade considerava somente vínculo e inscrição | Conta de atleta cancelada é excluída antes do cálculo; liberação e autenticação continuam necessárias ao acesso |
-| Ocultação e filtro do observador poderiam ser confundidos | Cancelamento recalcula ranking; filtro do observador preserva as posições previamente calculadas |
-| Diagramas de cancelamento de atleta mostravam apenas o atleta como autor | Incluído cancelamento pelo proprietário, sem impedir reativação autônoma do atleta |
-| Tabelas genéricas de e-mail não explicitavam exceções | Matriz de notificações por estado de conta e exceção de recuperação de senha |
-| Encaminhamento de demandas ao proprietário envolvendo atleta cancelado | Após D15, proprietário pode receber e tratar essas demandas; usuários comuns permanecem impedidos |
-| Justificativas com diferentes regras espalhadas no texto | Tabela unificada: vínculo exclusivo do proprietário; inscrição interna sem acesso do atleta; resultado disponível ao profissional para correção |
-| Lista de pendências omitia solicitações de vínculo | Incluídas as solicitações recebidas pelo profissional |
-| Cenários antigos não tinham condições de conta explícitas | Pré-condições transversais, ajuste da intervenção do proprietário e novos cenários de cruzamento |
-| AC30 estava fora de ordem | Ordenação corrigida sem renumerar IDs existentes |
-| Pendências misturavam perguntas respondidas e decisões técnicas | Substituídas por D01–D14, definições técnicas e informações de implantação |
-| Escopo de trabalho não refletia a divisão com o Copilot | Documentado: aqui documentação/automação, implementação pelo Copilot no VS Code |
+- [refinamento-vinculo-profissional-atleta.md](refinamento-vinculo-profissional-atleta.md)
+- [refinamento-temporada.md](refinamento-temporada.md)
+- [refinamento-categoria-classe-overall.md](refinamento-categoria-classe-overall.md)
+- [refinamento-inscricao.md](refinamento-inscricao.md)
+- [refinamento-resultado.md](refinamento-resultado.md)
+- [refinamento-ranking.md](refinamento-ranking.md)
+- [refinamento-campeonato-organizador.md](refinamento-campeonato-organizador.md)
 
-## Fluxo consolidado de precedência
+Em conflito entre texto histórico do brainstorm e um refinamento específico consolidado, prevalece o refinamento específico mais recente.
 
-```mermaid
-flowchart TD
-    A[Consulta ou ação envolvendo atleta] --> P{É proprietário?}
-    P -->|Sim| O[Permite consulta e administração inclusive de conta cancelada]
-    P -->|Não| B{Conta do atleta cancelada?}
-    B -->|Sim| C[Oculta dados e suspende pendências para usuários comuns]
-    C --> D[Permite somente recuperação e reativação pelo próprio atleta nos fluxos definidos]
-    B -->|Não| E[Verifica conta e permissão de quem acessa]
-    E --> F[Aplica autorização da temporada e vínculos]
-    F --> G{Consulta esportiva?}
-    G -->|Campeonato| H[Exibe colocações aprovadas, sem pontos]
-    G -->|Temporada| I[Calcula ranking dos atletas elegíveis]
-    I --> J[Aplica filtro de visibilidade sem renumerar posições]
+## Regras transversais consolidadas
+
+### Vínculo profissional-atleta
+
+`VinculoProfissionalAtleta` possui identidade e ciclo de vida próprios. Para autorização atual que realmente dependa da relação, considera-se vínculo `ATIVO`. Para fatos históricos, usa-se o intervalo `dtInicio`/`dtEncerramento`.
+
+```text
+vinculoVigenteNaData(atleta, profissional, dataReferencia)
+= dtInicio <= dataReferencia
+  E (dtEncerramento IS NULL OU dtEncerramento >= dataReferencia)
 ```
 
-## Decisões a priorizar
+Novo vínculo não preenche retroativamente um intervalo sem relacionamento.
 
-1. **D01 — primeiro vínculo (concluída após a revisão):** vínculo automático no cadastro direto de novo atleta pelo profissional e na liberação do pré-cadastro pelo profissional selecionado. Solicitações de novos vínculos para atleta já cadastrado continuam dependendo de aprovação.
-2. **D02 — aprovação sem temporada elegível (concluída após a revisão):** confirmado que o administrador convidado autorizado pode aprovar a inscrição mesmo sem vínculo do atleta com o criador. Inscrição confirmada não libera temporada sem elegibilidade. Restam 12 das 14 decisões inicialmente abertas; a especificação passou a 46 cenários de aceite.
-3. **D03 — perda de autorização durante uma pendência de inscrição (concluída):** redistribuir aos profissionais atualmente elegíveis; sem nenhum, direcionar ao proprietário. Suspensão por conta de atleta cancelada prevalece. A regra não substitui aprovações pessoais do atleta. Após D03, restam 11 das 14 decisões iniciais; a especificação possui 48 cenários de aceite.
-4. **D04 — remoção de inscrição com histórico (concluída):** qualquer lançamento no histórico, inclusive removido/cancelado, exige aprovação do proprietário para remover a inscrição. Remoção direta apenas se nunca houve lançamento nessa inscrição. Após D04, restam 10 das 14 decisões iniciais; a especificação possui 49 cenários de aceite.
+### Temporada e autorização contextual
 
-As demais decisões estão identificadas na seção 16 da especificação. Não pressupor respostas ao criar tarefas para o Copilot.
+A temporada possui somente `ATIVO`, `ENCERRADA` e `CANCELADA` e nasce `ATIVO`.
 
-## Limites e observações técnicas
+`TemporadaProfissional` separa permissão administrativa da relação profissional-atleta:
 
-- Documentação alterada; nenhum código da aplicação, SQL, configuração de execução ou banco foi alterado nesta revisão.
-- Ocultar dados no sistema e em novas exportações não revoga arquivos já baixados. Links de download e arquivos mantidos no servidor precisam aplicar a autorização vigente.
-- “Aprovação do resultado” e “aprovação da inscrição” são etapas diferentes. Uma inscrição confirmada permite ranking geral com zero; um resultado só compõe relatórios após aprovação.
-- Reativação de conta não restaura inscrição, resultado ou vínculo que tenham sido cancelados/encerrados em seus próprios fluxos.
-- Catálogos globais e resultados compartilhados exigem validação técnica de identidade e permissões; nenhuma escolha de framework adicional, fornecedor ou MCP foi feita nesta revisão.
-- Os diagramas foram revisados estruturalmente no Markdown; não houve renderização visual em um motor Mermaid nesta etapa.
+- criador possui administração por definição;
+- `ADMINISTRACAO` pode operar, no contexto da temporada, os atletas pertencentes à sua composição sem vínculo próprio com eles;
+- `CONSULTA` é leitura e não autoriza operações de inscrição/resultado;
+- vínculo profissional-atleta isolado não concede administração de temporada, inscrição ou resultado.
 
-## Próxima entrega
+A composição da temporada continua determinada pelos vínculos do criador; convidar administrador não adiciona atletas próprios do convidado.
 
-Atualização após D15: o proprietário confirmou acesso irrestrito para consultar e administrar dados e pendências de atletas cancelados, substituindo a decisão anterior de ocultação inclusive para ele. Reativação administrativa está definida (AC50). A ocultação/suspensão permanece para usuários comuns. A conta cancelada continua excluída dos rankings vigentes; acesso administrativo não implica reativação automática nem envio de notificações ao atleta cancelado.
+### Temporada encerrada
 
-Com D01–D05 e D15 concluídas, é possível produzir a primeira versão do modelo conceitual e da matriz de permissões, mantendo D06–D14 explicitamente pendentes. Após as decisões necessárias, gerar contratos, backlog e critérios de validação para o Copilot. Skills, agentes e MCP serão preparados com base nesses artefatos e no ambiente de implantação escolhido.
+`ENCERRADA` congela configuração estrutural, não fatos esportivos históricos.
+
+Sem reabrir, continuam permitidos lançamento, edição pendente, aprovação/reprovação e processamento de resultado tardio referente a campeonato já associado.
+
+Enquanto encerrada, ficam bloqueadas alterações de pontuação, penalidades e associação/desassociação de campeonatos. Alteração estrutural exige `ENCERRADA -> ATIVO` com auditoria.
+
+Gestão de acesso em `TemporadaProfissional` permanece permitida em `ENCERRADA`, pois não altera interpretação esportiva.
+
+### Temporada cancelada
+
+`CANCELADA` preserva dados e suspende a projeção esportiva da temporada. Reativação restaura o estado imediatamente anterior (`ATIVO` ou `ENCERRADA`) e recalcula a projeção.
+
+Como `Inscricao` e `Resultado` pertencem ao campeonato compartilhado e não à temporada, o cancelamento de uma temporada não apaga nem cancela esses fatos.
+
+### Campeonato compartilhado
+
+`Campeonato` é compartilhado N:N com temporadas. `Inscricao` e `Resultado` são únicos no contexto do campeonato e não são duplicados por temporada.
+
+O mesmo resultado pode produzir impactos diferentes em temporadas distintas porque pontuação e penalidade pertencem à temporada.
+
+### Inscrição
+
+`Inscricao` representa um ciclo de participação do atleta no campeonato. Reinscrição cria novo ciclo; resultados do ciclo anterior nunca são automaticamente reativados.
+
+Criador ou `ADMINISTRACAO` de temporada válida associada ao campeonato podem operar a inscrição dos atletas pertencentes àquela temporada sem vínculo profissional-atleta próprio.
+
+### Resultado
+
+`Resultado` possui granularidade:
+
+```text
+Inscricao + Categoria + Classe
+```
+
+Situações mínimas:
+
+- `CLASSIFICADO` — colocação inteira positiva;
+- `DESCLASSIFICADO` — colocação nula;
+- `AUSENTE` — colocação nula.
+
+Todas são lançadas manualmente; o sistema não infere ausência ou desclassificação.
+
+Todo lançamento nasce `PENDENTE_APROVACAO`. Somente `APROVADO` produz efeito esportivo.
+
+Para `CLASSIFICADO`, não existe empate de colocação no mesmo campeonato/categoria/classe. A unicidade vale desde `PENDENTE_APROVACAO`; pendência reserva a colocação. `CANCELADO` libera a reserva.
+
+### Pontuação e penalidade
+
+Pontuação/penalidade não é armazenada no `Resultado` como verdade autoritativa. Cada temporada interpreta o resultado usando sua configuração atual.
+
+Alteração de `TemporadaPontuacao` ou `TemporadaPenalidade` em temporada `ATIVO` recalcula retroativamente todos os resultados aprovados, válidos e elegíveis afetados. O MVP não versiona regra de pontuação por resultado.
+
+### Ranking
+
+Ranking é projeção dinâmica da temporada.
+
+Para composição atual do ranking, o atleta precisa possuir vínculo atual ativo com o criador, inscrição confirmada/não cancelada em campeonato associado e conta não cancelada.
+
+Para um resultado histórico contribuir, o vínculo com o criador deve ter sido vigente em `Campeonato.dtInicio`.
+
+`ATIVO` e `ENCERRADA` produzem projeção. `CANCELADA` suspende.
+
+Resultado tardio aprovado em temporada `ENCERRADA` recalcula o ranking sem reabertura.
+
+Empate no ranking é permitido e utiliza padrão de competição:
+
+```text
+1, 1, 3, 4...
+```
+
+Não existe critério esportivo adicional de desempate no MVP. Ranking por categoria permanece fora do MVP.
+
+## Contradições históricas resolvidas
+
+| Regra histórica | Regra consolidada vigente |
+|---|---|
+| Profissional precisava de vínculo próprio com atleta para operar inscrição/resultado | Criador ou `ADMINISTRACAO` pode operar contextualmente atletas da temporada sem vínculo próprio |
+| Vínculo atual determinava também todo o histórico | Atual usa `ATIVO`; histórico usa intervalo temporal e `Campeonato.dtInicio` |
+| Novo vínculo podia fazer resultados anteriores entrarem retroativamente | Não entra resultado de campeonato ocorrido em intervalo sem vínculo |
+| Temporada encerrada poderia congelar ranking | `ENCERRADA` congela estrutura, mas ranking permanece dinâmico e aceita resultado tardio |
+| Alteração de tabela poderia depender da regra vigente na data do resultado | Ranking usa configuração atual; alteração recalcula retroativamente |
+| Ranking por categoria fazia parte do MVP | Fora do MVP |
+| Empate do ranking estava pendente | Permitido com `1,1,3` |
+| Empate de colocação do campeonato estava pendente | Proibido; unicidade vale inclusive para resultado pendente |
+| Resultado representava apenas colocação | Pode ser `CLASSIFICADO`, `DESCLASSIFICADO` ou `AUSENTE` |
+| Ausência/desclassificação poderiam ser inferidas | Sempre lançamento manual em categoria/classe |
+| Campeonato pertencia operacionalmente a uma temporada | Campeonato é compartilhado; temporadas interpretam o mesmo resultado independentemente |
+| Profissional não editava diretamente campeonato existente | Campeonato sem uso pode ser editado diretamente por profissional autorizado; com uso, alteração cadastral segue fluxo do proprietário |
+| Desvincular campeonato com lançamentos dependia do proprietário | `ADMINISTRACAO` pode desvincular da temporada estruturalmente editável sem apagar inscrição/resultado |
+
+## Pontos ainda abertos de negócio
+
+O núcleo de pontuação, resultado, temporada, ranking, vínculo, inscrição, categoria/classe e campeonato está suficientemente consolidado para desenho técnico.
+
+Ainda merecem refinamento específico antes do aceite funcional completo:
+
+1. relatórios: colunas, filtros, agrupamentos, layouts PDF/Excel e apresentação de lacunas de visibilidade;
+2. notificações/e-mails: conteúdo final, reenvio, entrega e eventos ainda não explicitamente definidos;
+3. contas/perfis: campos obrigatórios e detalhes dos perfis autenticados fora do núcleo atleta/profissional/proprietário;
+4. infraestrutura, migração, implantação, observabilidade e operação.
+
+Esses itens não reabrem as decisões esportivas já consolidadas.
+
+## Consistência para implementação
+
+Antes de implementar cada agregado, o Copilot deve consultar o refinamento específico correspondente e usar `mvp-pontuacao.md` para contexto transversal.
+
+A implementação deve preservar especialmente:
+
+- autorização no backend;
+- separação entre vínculo real e permissão administrativa contextual;
+- separação entre fato esportivo (`Resultado`) e interpretação da temporada;
+- histórico e auditoria de transições;
+- concorrência/atomicidade das decisões;
+- unicidades funcionais de inscrição, resultado e colocação;
+- cálculo decimal com `BigDecimal`;
+- ranking reconstruível a partir das fontes autoritativas.
+
+## Resultado da revisão
+
+As inconsistências funcionais mais relevantes do brainstorm foram absorvidas pelos refinamentos específicos. O próximo trabalho de domínio deve se concentrar nas áreas ainda não detalhadas, principalmente relatórios e notificações, em vez de reabrir as regras centrais de pontuação já fechadas.
