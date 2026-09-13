@@ -49,15 +49,35 @@ O encerramento congela a configuração estrutural esportiva da temporada. Enqua
 
 A gestão de profissionais não exige reabertura, pois é controle de acesso e não altera pontuação, elegibilidade esportiva nem ranking.
 
-`ENCERRADA -> ATIVO` exige justificativa, responsável, data/hora e histórico auditável.
+### Transições de estado e justificativa
+
+Todas as transições registram obrigatoriamente responsável, data/hora e histórico auditável.
+
+A justificativa depende da natureza da transição:
+
+```text
+ATIVO -> ENCERRADA
+justificativa: não obrigatória
+
+ENCERRADA -> ATIVO
+justificativa: obrigatória
+
+ATIVO ou ENCERRADA -> CANCELADA
+justificativa: obrigatória
+
+CANCELADA -> estado imediatamente anterior
+justificativa: obrigatória
+```
+
+O encerramento normal `ATIVO -> ENCERRADA` é parte ordinária do ciclo de vida e, por isso, não exige justificativa. Ainda assim, a autoria e o instante do encerramento devem permanecer auditáveis.
+
+Reabertura, cancelamento e reativação são intervenções que alteram um estado já concluído/suspenso e exigem justificativa obrigatória.
+
+Criador e `ADMINISTRACAO` podem realizar as transições permitidas. `CONSULTA` não altera status.
 
 ### CANCELADA
 
 Cancelamento é lógico, preserva todos os dados e suspende o efeito esportivo. A reativação restaura o estado imediatamente anterior (`ATIVO` ou `ENCERRADA`).
-
-Cancelamento, reativação, encerramento e reabertura exigem justificativa obrigatória, responsável, data/hora e preservação do histórico de transições.
-
-Criador e `ADMINISTRACAO` podem realizar as transições permitidas. `CONSULTA` não altera status.
 
 ## Acesso de profissionais
 
@@ -221,6 +241,8 @@ Ranking por categoria permanece fora do MVP.
 
 - estados exclusivamente `ATIVO`, `ENCERRADA`, `CANCELADA`;
 - temporada nasce `ATIVO`;
+- encerramento normal `ATIVO -> ENCERRADA` não exige justificativa, mas exige responsável, data/hora e histórico auditável;
+- reabertura, cancelamento e reativação exigem justificativa obrigatória, responsável, data/hora e histórico auditável;
 - `ENCERRADA` pode ser reaberta com justificativa/auditoria;
 - encerramento congela configuração estrutural esportiva, não fatos esportivos históricos nem gestão de acesso;
 - `ENCERRADA` aceita inscrição e resultado tardios e seu ranking continua dinâmico;
@@ -229,7 +251,7 @@ Ranking por categoria permanece fora do MVP.
 - atos históricos de profissional removido/rebaixado permanecem preservados;
 - somente `CANCELADA` suspende efeito esportivo;
 - `CANCELADA` não fundamenta operações ordinárias de inscrição/resultado enquanto cancelada;
-- cancelamento/reativação/encerramento/reabertura preservam histórico auditável;
+- todas as transições de estado preservam responsável, data/hora e histórico auditável;
 - `cdCriador` permanente e imutável; sem transferência;
 - profissional pode ter múltiplas temporadas ativas simultâneas e sobrepostas;
 - mesmo campeonato pode pertencer a múltiplas temporadas;
