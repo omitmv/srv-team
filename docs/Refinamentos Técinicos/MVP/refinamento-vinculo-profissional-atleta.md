@@ -4,7 +4,9 @@ Status: decisões de negócio consolidadas para o MVP; refinamento de implementa
 
 ## Objetivo
 
-Modelar explicitamente a relação entre atleta e profissional, incluindo solicitação, aprovação, reprovação, criação automática e encerramento do vínculo.
+Modelar explicitamente a relação entre atleta e profissional, incluindo solicitação, aprovação, reprovação, criação automática, encerramento e vigência temporal do vínculo.
+
+`VinculoProfissionalAtleta` é a fonte autoritativa da existência e da vigência histórica da relação atleta-profissional. Não existe vínculo específico por temporada no MVP.
 
 ## Decisão de modelagem
 
@@ -23,8 +25,7 @@ Criar entidade própria `VinculoProfissionalAtleta` com identidade própria. Nã
 - `dtEncerramento`
 - `motivoReprovacao`
 - `motivoEncerramento`
-
-Campos de auditoria adicionais podem ser acrescentados no refinamento de implementação sem alterar a regra de negócio.
+- campos de auditoria
 
 ## Status do vínculo
 
@@ -43,7 +44,46 @@ PENDENTE -> REPROVADO
 ATIVO -> ENCERRADO
 ```
 
-Uma nova tentativa após reprovação ou encerramento deve gerar um novo registro, preservando o histórico anterior.
+Uma nova tentativa após reprovação ou encerramento gera novo registro, preservando o histórico anterior.
+
+Um vínculo encerrado nunca volta para `ATIVO`. Retomada futura da relação cria novo `VinculoProfissionalAtleta`.
+
+## Vigência temporal
+
+A existência histórica da relação não deve ser inferida apenas pelo `status` atual.
+
+Para operações atuais que exigem relacionamento direto profissional-atleta, o vínculo precisa estar `ATIVO`.
+
+Para validar se a relação existia em determinada data histórica, usar o intervalo do vínculo:
+
+```text
+vinculoVigenteNaData(atleta, profissional, dataReferencia)
+= dtInicio <= dataReferencia
+  E (dtEncerramento IS NULL OU dtEncerramento >= dataReferencia)
+```
+
+Consequências:
+
+- vínculo atualmente `ENCERRADO` pode comprovar relação válida no passado;
+- `status = ENCERRADO` não invalida retroativamente o período em que o vínculo esteve vigente;
+- um novo vínculo posterior não preenche lacuna entre dois vínculos;
+- histórico esportivo deve considerar a vigência correspondente à data de referência definida pela regra consumidora;
+- para elegibilidade histórica de resultado em temporada, a data de referência é `Campeonato.dtInicio`.
+
+Exemplo:
+
+```text
+Vínculo #1
+01/01 -> 31/03
+
+sem vínculo
+01/04 -> 30/04
+
+Vínculo #2
+01/05 -> atual
+```
+
+Um campeonato em 15/04 não se torna elegível retroativamente apenas porque um novo vínculo foi criado em 01/05.
 
 ## Origem
 
@@ -55,7 +95,7 @@ A origem deve permitir distinguir, no mínimo:
 - solicitação manual iniciada pelo profissional;
 - intervenção administrativa do proprietário.
 
-Sugestão de enum:
+Enum recomendado:
 
 - `CADASTRO_DIRETO_PROFISSIONAL`
 - `PRE_CADASTRO_ATLETA`
@@ -67,84 +107,158 @@ Sugestão de enum:
 
 ### Cadastro direto de novo atleta por profissional
 
-O vínculo nasce diretamente como `ATIVO`, sem aprovação adicional do atleta.
+O vínculo nasce diretamente `ATIVO`, sem aprovação adicional do atleta.
+
+`dtInicio` deve representar o início efetivo da relação.
 
 ### Pré-cadastro iniciado pelo atleta
 
-A liberação da conta pelo profissional responsável cria o vínculo diretamente como `ATIVO`.
+A liberação da conta pelo profissional responsável cria vínculo diretamente `ATIVO`.
 
 ### Solicitação envolvendo atleta já cadastrado
 
-O vínculo nasce como `PENDENTE` e depende da aprovação do destinatário.
+O vínculo nasce `PENDENTE` e depende da aprovação do destinatário. Ao ser aprovado, deve receber `dtInicio` correspondente ao início efetivo da relação.
 
 ### Intervenção administrativa
 
-O proprietário pode criar ou ativar diretamente um vínculo por ação administrativa. A origem deve ser registrada como `ADMINISTRATIVO`, preservando auditoria da ação.
+O proprietário pode criar ou ativar diretamente um vínculo por ação administrativa. A origem deve ser `ADMINISTRATIVO`, com auditoria explícita.
 
 ## Regras de duplicidade
 
-- Pode existir no máximo uma solicitação `PENDENTE` por par atleta/profissional, independentemente de quem iniciou.
-- Se o par já possuir vínculo `ATIVO`, não deve ser criada nova solicitação.
-- Se a solicitação pendente foi iniciada pelo mesmo solicitante, um novo envio deve reutilizar a mesma pendência e apenas reenviar a notificação.
-- Se a pendência foi iniciada pela outra parte, bloquear nova solicitação e informar que já existe uma decisão aguardando o usuário atual.
-- Registros `REPROVADO` e `ENCERRADO` permanecem como histórico e não impedem uma nova tentativa futura.
+- no máximo uma solicitação `PENDENTE` por par atleta/profissional;
+- no máximo um vínculo `ATIVO` por par atleta/profissional;
+- vínculo ativo bloqueia nova solicitação;
+- reenvio pelo mesmo solicitante reutiliza a pendência existente;
+- solicitação inversa enquanto existe pendência é bloqueada;
+- `REPROVADO` e `ENCERRADO` permanecem históricos e não impedem nova tentativa futura.
+
+Múltiplos registros históricos para o mesmo par são esperados quando a relação é encerrada e posteriormente retomada.
 
 ## Reprovação
 
-- Justificativa obrigatória.
-- A justificativa é preservada no histórico.
-- Sua consulta é exclusiva do proprietário, conforme regra já definida no MVP.
+- justificativa obrigatória;
+- justificativa preservada no histórico;
+- consulta da justificativa exclusiva do proprietário, conforme regra do MVP.
 
 ## Encerramento
 
-- Atleta e profissional podem encerrar unilateralmente um vínculo ativo, sem aprovação da outra parte.
-- Justificativa obrigatória.
-- Encerrar vínculo não cancela conta, inscrição ou resultado.
-- O encerramento afeta apenas autorizações futuras dependentes daquele vínculo.
-- O histórico deve ser preservado.
-- O encerramento deve registrar quem executou a ação e a data correspondente.
+- atleta e profissional podem encerrar unilateralmente vínculo ativo;
+- justificativa obrigatória;
+- registrar responsável, `dtEncerramento` e auditoria;
+- encerramento não cancela conta, inscrição ou resultado;
+- vínculo deixa de autorizar operações futuras que dependem diretamente da relação;
+- período histórico anterior permanece válido;
+- novo relacionamento futuro exige novo registro.
+
+O encerramento de vínculo com o criador de uma temporada pode retirar o atleta da composição corrente do ranking, mas não apaga resultados históricos elegíveis de campeonatos ocorridos enquanto o vínculo estava vigente.
 
 ## Solicitações pendentes
 
-Solicitações `PENDENTE` não expiram automaticamente no MVP. Permanecem abertas até uma decisão explícita de aprovação, reprovação ou cancelamento.
-
-Essa decisão evita introduzir scheduler, política de validade e regras adicionais de notificação sem necessidade funcional imediata.
+Solicitações `PENDENTE` não expiram automaticamente no MVP. Permanecem abertas até decisão explícita.
 
 ## Elegibilidade de usuários
 
 `cdAtleta` deve apontar para usuário com perfil `ATLETA`.
 
-`cdProfissional` deve apontar para perfil elegível como profissional. No modelo atual, os perfis explicitamente profissionais são `NUTRITIONISTA`, `TREINADOR` e `COACH`.
+`cdProfissional` deve apontar para perfil de negócio elegível. No modelo atual: `NUTRITIONISTA`, `TREINADOR` e `COACH`.
 
-Não inferir profissional apenas por exclusão de `ATLETA`, pois existem outros perfis (`ADMINISTRADOR`, `FUNCIONARIO`) que não representam necessariamente atendimento profissional.
+Não inferir profissional apenas por exclusão de `ATLETA`, pois `ADMINISTRADOR` e `FUNCIONARIO` não representam necessariamente atendimento profissional.
 
-### Separação entre papel de negócio e permissão administrativa
+### Papel de negócio versus permissão administrativa
 
-`ADMINISTRADOR` não deve ser utilizado como substituto de um papel profissional de atendimento.
+`ADMINISTRADOR` não substitui papel profissional de atendimento.
 
-Administração representa permissão/contexto de acesso, enquanto `NUTRITIONISTA`, `TREINADOR` e `COACH` representam papéis de negócio.
+Administração é permissão/contexto de acesso. `NUTRITIONISTA`, `TREINADOR` e `COACH` são papéis de negócio.
 
-No refinamento de implementação, deve-se evitar modelagem que force um usuário a perder seu papel profissional apenas porque recebeu permissão administrativa. Caso a estrutura atual de `cdTpAcesso` único impeça essa composição, deverá ser evoluída para separar perfil profissional de permissões administrativas.
+Se `cdTpAcesso` único impedir a composição entre papel profissional e permissão administrativa, o modelo deverá evoluir para separar esses conceitos.
+
+## Relação com Temporada
+
+`VinculoProfissionalAtleta` e `TemporadaProfissional` possuem responsabilidades diferentes:
+
+```text
+VinculoProfissionalAtleta
+-> existência real da relação atleta-profissional
+-> composição corrente quando o profissional é o criador da temporada
+-> comprovação histórica da relação na data do campeonato
+
+TemporadaProfissional
+-> autorização contextual para ADMINISTRACAO ou CONSULTA
+-> não cria relação atleta-profissional
+```
+
+A composição dos atletas da temporada é derivada exclusivamente dos vínculos do `Temporada.cdCriador`.
+
+Vínculo com administrador ou consultor não adiciona atleta à temporada.
+
+Um profissional com `ADMINISTRACAO` pode operar, dentro do contexto da temporada, atletas pertencentes à temporada mesmo sem vínculo profissional-atleta próprio. Essa autorização contextual não cria nem simula um `VinculoProfissionalAtleta`.
+
+`CONSULTA` continua sujeita às regras de visibilidade definidas na temporada e, para dados individualizados, exige vínculo próprio ativo quando assim definido.
+
+## Relação com ranking e resultados
+
+### Composição corrente do ranking
+
+Para o atleta integrar atualmente a composição esportiva da temporada, deve existir vínculo `ATIVO` com `Temporada.cdCriador`, além das demais regras de elegibilidade.
+
+### Elegibilidade histórica de resultado
+
+Para um resultado contribuir para uma temporada:
+
+```text
+vinculoVigenteNaData(
+  atleta,
+  Temporada.cdCriador,
+  Campeonato.dtInicio
+)
+```
+
+O fato de o vínculo estar hoje `ENCERRADO` não elimina contribuição histórica ocorrida durante sua vigência.
+
+Da mesma forma, reativar a relação através de novo vínculo não torna elegível campeonato ocorrido durante intervalo sem relação.
+
+### Autorização operacional
+
+Não usar vínculo direto como substituto de autorização contextual de temporada.
+
+Em `Inscricao` e `Resultado`, a operação ordinária é autorizada pelas regras da temporada: criador ou `ADMINISTRACAO`, conforme o contexto definido nos respectivos refinamentos.
+
+Portanto:
+
+- vínculo direto isolado não autoriza lançamento/edição de resultado;
+- vínculo direto isolado não autoriza decisão de inscrição;
+- `ADMINISTRACAO` contextual pode autorizar operação sem vínculo próprio com o atleta;
+- nenhuma dessas permissões altera a existência real do vínculo atleta-profissional.
 
 ## Índices e restrições recomendados
 
 - índice por `cdAtleta`;
 - índice por `cdProfissional`;
-- índice composto por `(cdAtleta, cdProfissional, status)`;
-- garantia de unicidade lógica de uma única pendência por par atleta/profissional;
-- garantia de unicidade lógica de um único vínculo ativo por par atleta/profissional.
+- índice composto `(cdAtleta, cdProfissional, status)`;
+- unicidade lógica de uma única pendência por par;
+- unicidade lógica de um único vínculo ativo por par;
+- índice temporal por `(cdAtleta, cdProfissional, dtInicio, dtEncerramento)` quando útil para consultas históricas.
 
-A estratégia exata para unicidade condicional deve respeitar o SGBD adotado; caso o banco não ofereça índice parcial, aplicar proteção no serviço e mecanismo complementar no banco quando possível.
+A estratégia física deve respeitar o SGBD adotado. Proteções críticas de unicidade devem ser resistentes a concorrência.
 
-## Autorização
+## Invariantes consolidadas
 
-A existência de vínculo `ATIVO` é condição necessária para operações que exigem relacionamento profissional-atleta, mas não é condição suficiente para acesso a temporada, inscrição ou resultado. Essas operações continuam sujeitas às demais regras de autorização do MVP.
-
-Pertencer ao mesmo `Time` não cria vínculo profissional-atleta automaticamente.
-
-## Decisões fechadas
-
-1. Administração é permissão/contexto e não substitui o papel profissional de atendimento.
-2. O proprietário pode criar ou ativar vínculo diretamente por ação administrativa, com origem auditável.
-3. Atleta e profissional podem encerrar unilateralmente o vínculo, com justificativa obrigatória.
-4. Solicitações pendentes não expiram automaticamente no MVP.
+- vínculo possui identidade própria e histórico por ciclos;
+- `PENDENTE`, `ATIVO`, `REPROVADO`, `ENCERRADO` são os estados do MVP;
+- vínculo encerrado não é reativado; retomada cria novo registro;
+- vínculo atual `ATIVO` controla operações atuais que dependem diretamente da relação;
+- intervalo `dtInicio`/`dtEncerramento` controla validade histórica;
+- vínculo encerrado pode ser historicamente válido em data anterior;
+- novo vínculo não preenche retroativamente lacunas;
+- para resultado em temporada, referência histórica é `Campeonato.dtInicio`;
+- encerramento não apaga inscrição, resultado nem contribuição histórica válida;
+- atleta e profissional podem encerrar unilateralmente com justificativa;
+- solicitações pendentes não expiram automaticamente;
+- proprietário pode criar/ativar vínculo administrativamente com auditoria;
+- perfil administrativo não substitui papel profissional;
+- mesma equipe/time não cria vínculo automaticamente;
+- vínculo do criador determina composição da temporada;
+- vínculo de administrador/consultor não adiciona atleta à temporada;
+- `TemporadaProfissional.ADMINISTRACAO` é autorização contextual e não cria vínculo;
+- administrador pode operar atleta da temporada sem vínculo próprio quando a regra da temporada permitir;
+- vínculo direto isolado não substitui autorização de `Inscricao`/`Resultado`.
