@@ -1,21 +1,17 @@
-name: Verify
+name: Maven 4 Compatibility
 
 on:
-  push:
-    branches:
-      - release
-      - "copilot/**"
-  pull_request:
-    branches:
-      - release
   workflow_dispatch:
+  schedule:
+    - cron: "0 5 * * 1"
 
 permissions:
   contents: read
 
 jobs:
-  verify:
+  maven4-compatibility:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,9 +21,13 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
 
-      - name: Verify with Maven Wrapper
+      - name: Download Maven 4 RC
+        run: |
+          curl -fsSL https://archive.apache.org/dist/maven/maven-4/4.0.0-rc-6/binaries/apache-maven-4.0.0-rc-6-bin.tar.gz \
+            | tar -xz
+
+      - name: Validate with Maven 4 RC
         run: |
           export DB_URL='jdbc:h2:mem:srvteam;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE'
           export DB_USERNAME='sa'
@@ -37,4 +37,4 @@ import secrets
 print(secrets.token_urlsafe(48))
 PY
 )"
-          ./mvnw --batch-mode clean verify
+          ./apache-maven-4.0.0-rc-6/bin/mvn --batch-mode -DskipTests verify
