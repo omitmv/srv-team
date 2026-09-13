@@ -105,13 +105,37 @@ Como a inscrição não pertence a uma temporada, uma mesma inscrição pode ser
 
 A composição do atleta na temporada continua sendo definida pelo vínculo do atleta com o criador da temporada.
 
+## Estado da temporada e inscrição tardia
+
+Temporada `ATIVO` e `ENCERRADA` podem servir de fundamento contextual para operações ordinárias de `Inscricao`, desde que as demais regras de autorização sejam satisfeitas.
+
+Isso significa que, em uma temporada `ENCERRADA`, ainda é permitido:
+
+- o atleta solicitar inscrição em campeonato já associado à temporada;
+- profissional contextualmente autorizado aprovar ou reprovar a solicitação;
+- profissional contextualmente autorizado realizar `CADASTRO_DIRETO_PROFISSIONAL`;
+- concluir pendências de inscrição já existentes;
+- cancelar inscrição quando a regra de cancelamento permitir a atuação direta do profissional.
+
+A finalidade é permitir registro tardio de um fato histórico real, da mesma forma que resultados tardios podem ser processados após o encerramento da temporada.
+
+Não é necessário executar `ENCERRADA -> ATIVO` apenas para registrar, aprovar ou corrigir o ciclo de participação no campeonato.
+
+Essa permissão não reabre a configuração estrutural da temporada. Enquanto `ENCERRADA`, continuam bloqueadas alterações estruturais que exijam reabertura conforme `refinamento-temporada.md`, como mudanças de pontuação, penalidades e composição de campeonatos.
+
+Temporada `CANCELADA` não deve servir como fundamento ordinário para criação, aprovação, reprovação, cadastro direto ou cancelamento de inscrição enquanto permanecer cancelada.
+
+Se um campeonato estiver associado a múltiplas temporadas, uma operação sobre `Inscricao` permanece permitida quando existir ao menos uma temporada `ATIVO` ou `ENCERRADA` que satisfaça integralmente os critérios de autorização contextual.
+
+A eventual existência de outras temporadas `CANCELADA` associadas ao mesmo campeonato não invalida a operação autorizada por uma temporada válida.
+
 ## Solicitação pelo atleta
 
 Antes de criar uma pendência:
 
 1. verificar se já existe inscrição `CONFIRMADA`;
 2. verificar se já existe `PENDENTE`;
-3. localizar temporadas contendo o campeonato;
+3. localizar temporadas `ATIVO` ou `ENCERRADA` contendo o campeonato;
 4. entre essas temporadas, identificar aquelas nas quais o atleta pertence à composição da temporada;
 5. identificar criadores e profissionais com `ADMINISTRACAO` nessas temporadas;
 6. remover destinatários duplicados;
@@ -127,7 +151,8 @@ Um profissional pode decidir sobre a solicitação quando, no momento da decisã
 
 ```text
 existe Temporada T tal que:
-  Campeonato pertence a T
+  T.status IN (ATIVO, ENCERRADA)
+  E Campeonato pertence a T
   E atleta pertence à composição de T
   E (
        profissional = T.cdCriador
@@ -145,7 +170,7 @@ A autorização deve ser revalidada no momento da decisão; não basta ter sido 
 
 O mesmo critério de autorização contextual vale para `CADASTRO_DIRETO_PROFISSIONAL`.
 
-Um criador ou administrador pode confirmar diretamente a inscrição de um atleta quando existir ao menos uma temporada administrada por ele que:
+Um criador ou administrador pode confirmar diretamente a inscrição de um atleta quando existir ao menos uma temporada `ATIVO` ou `ENCERRADA` administrada por ele que:
 
 - contenha o campeonato; e
 - tenha o atleta em sua composição.
@@ -165,6 +190,8 @@ Na aprovação:
 - recalcular elegibilidade das temporadas relacionadas.
 
 A inscrição pode ser confirmada mesmo que, após a decisão, nenhuma temporada seja esportivamente elegível para o atleta, porque aprovação de inscrição e elegibilidade esportiva são conceitos distintos.
+
+Quando a confirmação tardia tornar o atleta elegível em temporada `ATIVO` ou `ENCERRADA`, sua projeção/ranking deve ser recalculada conforme as regras vigentes.
 
 ## Reprovação
 
@@ -186,6 +213,7 @@ O profissional deixa de poder decidir se deixar de satisfazer o critério contex
 
 - perder `ADMINISTRACAO` da temporada que sustentava a autorização;
 - a temporada deixar de conter o campeonato;
+- a temporada utilizada como único fundamento passar para `CANCELADA`;
 - o atleta deixar de pertencer à composição daquela temporada;
 - perder sua condição operacional de conta conforme as regras gerais do MVP.
 
@@ -205,7 +233,7 @@ A remoção é `CANCELADA`, nunca exclusão física.
 
 ### Sem qualquer resultado no histórico da inscrição
 
-Criador ou profissional com `ADMINISTRACAO` contextualmente autorizado pode cancelar diretamente.
+Criador ou profissional com `ADMINISTRACAO` contextualmente autorizado por temporada `ATIVO` ou `ENCERRADA` pode cancelar diretamente.
 
 ### Com qualquer resultado no histórico da inscrição
 
@@ -229,6 +257,8 @@ Após cancelamento ou reprovação, novo ciclo cria nova `Inscricao`.
 
 Resultados de ciclos anteriores nunca são reativados automaticamente e novos resultados referenciam a nova inscrição.
 
+Reinscrição tardia também pode ocorrer com fundamento em temporada `ENCERRADA`, desde que o campeonato continue associado e as demais regras contextuais sejam satisfeitas.
+
 ## Relação com Resultado
 
 `Resultado` referencia `cdInscricao`, não atleta + campeonato.
@@ -251,7 +281,7 @@ Ela pertence ao atleta/campeonato e pode tornar o atleta elegível em várias te
 
 Cada temporada avalia de forma independente sua elegibilidade esportiva e suas próprias regras.
 
-A autorização operacional do profissional, entretanto, pode ser derivada de uma temporada específica que contenha o campeonato e tenha o atleta em sua composição.
+A autorização operacional do profissional, entretanto, pode ser derivada de uma temporada específica `ATIVO` ou `ENCERRADA` que contenha o campeonato e tenha o atleta em sua composição.
 
 Isso não transforma `Inscricao` em entidade filha da temporada.
 
@@ -281,6 +311,9 @@ A estratégia concreta de migration será definida em conjunto com a migração 
 - atleta pode ter múltiplos ciclos históricos no mesmo campeonato;
 - no máximo uma `PENDENTE` e uma `CONFIRMADA` por atleta/campeonato;
 - inscrição não pertence à temporada;
+- `ATIVO` e `ENCERRADA` podem fundamentar operações tardias de inscrição;
+- `ENCERRADA` não precisa ser reaberta apenas para solicitar, aprovar, reprovar, cadastrar diretamente ou cancelar inscrição quando permitido;
+- `CANCELADA` não fundamenta operação ordinária de inscrição enquanto cancelada;
 - aprovação por qualquer elegível resolve pendência para todos;
 - reprovação exige justificativa;
 - reenvio reutiliza pendência existente;
