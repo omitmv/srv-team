@@ -20,7 +20,7 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - Categoria e classe pertencem ao `Resultado`.
 - Manutenção profissional de campeonato existente deriva da administração de ao menos uma temporada vinculada.
 - Campeonato já utilizado exige aprovação do proprietário para alteração cadastral.
-- Toda alteração de status exige justificativa e auditoria.
+- Toda alteração de status exige justificativa e histórico imutável da transição.
 - Havendo qualquer `Resultado` histórico, alteração de status solicitada por profissional exige aprovação do proprietário.
 - Campeonato cancelado equivalente não pode ser recadastrado.
 - Reativação deve revalidar equivalência e é bloqueada se já existir outro campeonato `ATIVO` semanticamente equivalente.
@@ -73,14 +73,12 @@ Campeonato
  ├── dsLocal
  ├── status
  ├── cdCriador
- ├── dtCancelamento
- ├── cdResponsavelCancelamento
- ├── dtReativacao
- ├── cdResponsavelReativacao
- └── auditoria
+ └── auditoria corrente
 ```
 
 Estados: `ATIVO` e `CANCELADO`.
+
+`status` representa o estado corrente. O histórico de cancelamentos e reativações não deve depender de campos sobrescrevíveis no próprio `Campeonato`; cada transição é preservada em histórico imutável específico.
 
 `dtInicio` e `dtFim` são obrigatórias. `dtFim` nunca pode ser anterior a `dtInicio`; igualdade representa evento de um dia. O término da data não muda automaticamente o estado, não cancela inscrições/resultados e não controla pontuação.
 
@@ -155,7 +153,45 @@ ATIVO -> CANCELADO
 CANCELADO -> ATIVO
 ```
 
-Toda transição exige justificativa, responsável, data/hora e auditoria.
+Toda transição exige justificativa, responsável, data/hora e criação de registro imutável em `CampeonatoStatusHistorico` na mesma transação que altera o estado corrente.
+
+### Histórico imutável de status
+
+Modelo conceitual:
+
+```text
+CampeonatoStatusHistorico
+ ├── cdHistorico
+ ├── cdCampeonato
+ ├── statusOrigem
+ ├── statusDestino
+ ├── justificativa
+ ├── cdResponsavel
+ ├── dtTransicao
+ ├── origemOperacao
+ ├── cdSolicitacaoStatus (opcional)
+ └── auditoria técnica
+```
+
+`origemOperacao` deve permitir distinguir ao menos:
+
+- `DIRETA_PROFISSIONAL`;
+- `APROVACAO_PROPRIETARIO`;
+- `DIRETA_PROPRIETARIO`.
+
+Regras:
+
+- cada transição efetivamente aplicada gera exatamente um registro histórico;
+- o registro histórico é append-only: não pode ser editado nem excluído pelo fluxo ordinário;
+- `statusOrigem` deve corresponder ao estado corrente imediatamente antes da transição;
+- `statusDestino` deve corresponder ao estado corrente imediatamente após a transição;
+- justificativa é obrigatória em todas as transições;
+- responsável e instante efetivo da transição são obrigatórios;
+- quando a transição decorrer de solicitação aprovada, o histórico referencia a solicitação que a originou;
+- criação do histórico e alteração do `Campeonato.status` pertencem à mesma unidade transacional: não pode existir mudança de status sem histórico nem histórico de mudança que não tenha sido aplicada;
+- tentativas rejeitadas ou bloqueadas não geram `CampeonatoStatusHistorico`, pois não houve transição; permanecem registradas no fluxo de solicitação/log técnico aplicável.
+
+Campos como última data/responsável de cancelamento ou reativação podem existir apenas como projeção/otimização de leitura, mas não são fonte autoritativa do histórico.
 
 ### Existência histórica de lançamento
 
@@ -163,11 +199,11 @@ Campeonato possui lançamento quando já existiu qualquer `Resultado` associado 
 
 ### Sem lançamento histórico
 
-Profissional autorizado pode cancelar ou reativar diretamente, sempre com justificativa e auditoria. Proprietário também pode executar diretamente.
+Profissional autorizado pode cancelar ou reativar diretamente, sempre com justificativa e histórico imutável. Proprietário também pode executar diretamente.
 
 ### Com lançamento histórico
 
-Profissional autorizado solicita alteração de status e somente proprietário aprova/reprova. O proprietário pode alterar diretamente, sempre com justificativa e auditoria equivalente.
+Profissional autorizado solicita alteração de status e somente proprietário aprova/reprova. O proprietário pode alterar diretamente, sempre com justificativa e histórico equivalente.
 
 Pode-se utilizar entidade única `SolicitacaoAlteracaoStatusCampeonato`, contendo campeonato, solicitante, status origem/destino, justificativa, status da solicitação, datas e decisão. No máximo uma solicitação pendente por campeonato e a decisão deve revalidar o estado atual.
 
@@ -205,7 +241,9 @@ Reativação preserva a mesma identidade. Após passar pela revalidação de equ
 
 ## Auditoria
 
-Preservar historicamente criação, edições diretas, responsáveis, temporadas usadas como contexto de autorização, vínculos/desvínculos, solicitações cadastrais e de status, justificativas, decisões, antes/depois, cancelamentos, reativações e respectivos responsáveis/datas.
+`CampeonatoStatusHistorico` é a fonte autoritativa para reconstruir todas as transições `ATIVO <-> CANCELADO` efetivamente aplicadas.
+
+Além dele, preservar historicamente criação, edições diretas, responsáveis, temporadas usadas como contexto de autorização, vínculos/desvínculos, solicitações cadastrais e de status, justificativas, decisões e antes/depois.
 
 Tentativas de reativação rejeitadas por colisão semântica devem ser observáveis tecnicamente; quando houver solicitação formal, a impossibilidade de aprovação deve ficar explícita no fluxo administrativo.
 
@@ -222,7 +260,9 @@ Campeonato não mantém coleção pré-configurada de categorias/classes. A comb
 - `ENCERRADA` exige reabertura para alteração estrutural; `CANCELADA` bloqueia alteração ordinária;
 - desvinculação não modifica inscrições/resultados e apenas altera a projeção da temporada;
 - campeonato utilizado exige aprovação do proprietário para alteração cadastral;
-- toda alteração de status exige justificativa e auditoria;
+- toda alteração de status exige justificativa e registro imutável da transição;
+- alteração do status corrente e inserção de `CampeonatoStatusHistorico` são atômicas;
+- histórico de status é append-only e fonte autoritativa das transições;
 - existência histórica de resultado condiciona alteração de status profissional à aprovação do proprietário;
 - equivalência usa nome normalizado + organizador + país + subdivisão + data inicial;
 - não pode existir reativação que produza dois campeonatos `ATIVO` semanticamente equivalentes;
