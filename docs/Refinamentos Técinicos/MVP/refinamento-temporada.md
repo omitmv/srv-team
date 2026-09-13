@@ -23,13 +23,9 @@ Campos conceituais:
 
 ## Estado
 
-Estados do MVP:
+Estados do MVP: `ATIVO`, `ENCERRADA`, `CANCELADA`.
 
-- `ATIVO`
-- `ENCERRADA`
-- `CANCELADA`
-
-Não existe `RASCUNHO`; a temporada é criada diretamente como `ATIVO`.
+Não existe `RASCUNHO`; a temporada nasce `ATIVO`.
 
 ### ATIVO
 
@@ -37,78 +33,37 @@ Estado operacional normal. Pode produzir efeitos esportivos, receber operações
 
 ### ENCERRADA
 
-Representa ciclo esportivo concluído, mas não significa congelamento dos fatos esportivos históricos.
+Representa ciclo esportivo concluído, mas não congela fatos esportivos históricos.
 
-Uma temporada `ENCERRADA`:
+Continua permitindo consulta, cálculo de ranking e lançamento/aprovação/reprovação/correção de resultados tardios referentes a campeonatos já associados. Alterações desses resultados recalculam automaticamente o ranking.
 
-- continua disponível para consulta;
-- continua exibindo e calculando seu ranking;
-- aceita lançamento tardio de resultados referentes a campeonatos já vinculados à temporada;
-- aceita aprovação/reprovação e correções desses resultados conforme o fluxo normal de `Resultado`;
-- recalcula automaticamente o ranking quando um resultado tardio passa a produzir ou deixa de produzir efeito;
-- preserva dados e histórico.
+O encerramento congela a configuração estrutural da temporada. Enquanto `ENCERRADA`, não se altera tabela de pontuação, penalidades ou composição de campeonatos. Para alteração estrutural, deve ser reaberta para `ATIVO`.
 
-O encerramento congela a configuração estrutural da temporada, não os fatos esportivos dos campeonatos que já pertencem a ela.
-
-Enquanto `ENCERRADA`, não é permitido:
-
-- alterar tabela de pontuação;
-- alterar penalidades;
-- vincular ou desvincular campeonatos;
-- realizar outras alterações estruturais da temporada que modifiquem a interpretação esportiva já estabelecida.
-
-Quando uma alteração estrutural for necessária, a temporada deve ser reaberta para `ATIVO`.
-
-Uma temporada `ENCERRADA` pode voltar para `ATIVO`. Essa reabertura exige justificativa obrigatória, responsável e data/hora e deve ser registrada no histórico auditável de transições.
+`ENCERRADA -> ATIVO` exige justificativa, responsável, data/hora e histórico auditável.
 
 ### CANCELADA
 
-Cancelamento é lógico e preserva campeonatos, inscrições, resultados, vínculos profissionais, pontuação, penalidades e histórico. Enquanto `CANCELADA`, a temporada não produz efeito esportivo.
+Cancelamento é lógico, preserva todos os dados e suspende o efeito esportivo. A reativação restaura o estado imediatamente anterior (`ATIVO` ou `ENCERRADA`).
 
-A temporada cancelada pode ser reativada. A reativação deve restaurar o estado que existia imediatamente antes do cancelamento (`ATIVO` ou `ENCERRADA`).
+Cancelamento, reativação, encerramento e reabertura exigem justificativa obrigatória, responsável, data/hora e preservação do histórico de transições.
 
-### Justificativa e histórico de status
+Criador e `ADMINISTRACAO` podem realizar as transições permitidas. `CONSULTA` não altera status.
 
-As seguintes operações exigem sempre justificativa obrigatória, responsável e data/hora:
-
-- cancelamento;
-- reativação de cancelamento;
-- encerramento;
-- reabertura de `ENCERRADA` para `ATIVO`.
-
-Toda transição deve ser auditável e preservar o histórico anterior. Uma nova transição nunca apaga a justificativa, responsável ou data/hora das anteriores.
-
-Criador e profissionais com `ADMINISTRACAO` podem realizar as transições permitidas. `CONSULTA` não altera status.
-
-Fluxos conceituais:
-
-```text
-ATIVO -> ENCERRADA
-ENCERRADA -> ATIVO
-
-ATIVO -> CANCELADA -> ATIVO
-ENCERRADA -> CANCELADA -> ENCERRADA
-```
-
-## Acesso de profissionais à temporada
+## Acesso de profissionais
 
 O criador possui autoridade administrativa por definição. Outros profissionais acessam por `TemporadaProfissional`, com `ADMINISTRACAO` ou `CONSULTA`.
 
-`ADMINISTRACAO` permite auxiliar o criador nas configurações, vínculos de campeonatos, gestão de acessos e lançamentos. O administrador pode operar os atletas pertencentes à temporada mesmo sem vínculo profissional-atleta próprio, estritamente dentro do contexto da temporada.
+`ADMINISTRACAO` pode auxiliar nas configurações, associações, gestão de acessos e lançamentos e operar atletas pertencentes à temporada sem vínculo profissional-atleta próprio, estritamente no contexto da temporada.
 
-`CONSULTA` é somente leitura. Dados individualizados ficam limitados aos atletas da temporada com os quais o consultor também possua `VinculoProfissionalAtleta` ativo.
+`CONSULTA` é leitura; dados individualizados limitam-se aos atletas da temporada com os quais o consultor também possua vínculo ativo.
 
-O criador não pode ser removido ou rebaixado; `cdCriador` é imutável e não existe transferência de titularidade no MVP.
+`cdCriador` é imutável; criador não pode ser removido/rebaixado e não existe transferência de titularidade no MVP.
 
-## Composição de atletas da temporada
+## Composição e vínculo temporal
 
-A composição é determinada exclusivamente pelos vínculos do criador. `VinculoProfissionalAtleta` é a fonte autoritativa da relação atleta/profissional, inclusive historicamente; não existe `TemporadaAtleta` no MVP.
+A composição é determinada exclusivamente pelos vínculos do criador. `VinculoProfissionalAtleta` é a fonte autoritativa; não existe `TemporadaAtleta`.
 
-Vínculo do atleta com administrador ou consultor não adiciona o atleta à temporada.
-
-### Vigência temporal do vínculo
-
-Para operações atuais, o vínculo precisa estar `ATIVO`. Para consultas históricas:
+Para operações atuais, vínculo precisa estar `ATIVO`. Historicamente:
 
 ```text
 vinculoVigenteNaData(atleta, profissional, dataReferencia)
@@ -116,160 +71,149 @@ vinculoVigenteNaData(atleta, profissional, dataReferencia)
   E (dtEncerramento IS NULL OU dtEncerramento >= dataReferencia)
 ```
 
-Um vínculo atualmente `ENCERRADO` pode comprovar relação válida no passado. Retomada cria novo `VinculoProfissionalAtleta` e não preenche retroativamente períodos sem vínculo.
+Retomada após encerramento cria novo vínculo e não preenche retroativamente intervalos sem vínculo.
 
 ## Múltiplas temporadas simultâneas
 
-Um profissional pode possuir/criar e administrar mais de uma temporada `ATIVO` simultaneamente.
-
-Não existe restrição de unicidade do tipo "uma temporada ativa por profissional" nem impedimento baseado em sobreposição de datas.
+Um profissional pode possuir/criar/administrar várias temporadas `ATIVO` simultaneamente. Não existe unicidade de temporada ativa por profissional nem impedimento por sobreposição de datas.
 
 Cada temporada possui configuração, pontuação, penalidades, associações e ranking independentes.
 
 ## Campeonatos e temporadas
 
-A relação é N:N via `TemporadaCampeonato`.
+Relação N:N via `TemporadaCampeonato`.
 
-O cenário normal pode utilizar campeonatos diferentes entre temporadas simultâneas, porém isso não é restrição de negócio. O mesmo campeonato pode ser associado a duas ou mais temporadas, inclusive temporadas `ATIVO` simultaneamente e administradas/criadas pelo mesmo profissional.
+O mesmo campeonato pode estar em várias temporadas, inclusive simultaneamente ativas e do mesmo profissional. `Campeonato`, `Inscricao` e `Resultado` não são duplicados por temporada; cada temporada interpreta os resultados elegíveis conforme suas próprias regras.
 
-`Campeonato` continua sendo entidade compartilhada. `Inscricao` e `Resultado` pertencem ao campeonato e não são duplicados por temporada. Cada temporada interpreta os mesmos resultados elegíveis segundo suas próprias regras de pontuação e penalidade.
+Invariantes:
 
-Um mesmo resultado pode, portanto, produzir impactos diferentes em temporadas diferentes.
-
-Invariantes da associação:
-
-- não duplicar o mesmo campeonato dentro da mesma temporada;
-- campeonato pode estar em várias temporadas;
-- inclusive temporadas simultaneamente `ATIVO`;
-- inclusive temporadas do mesmo criador/profissional;
-- datas nominais da temporada não limitam automaticamente a associação;
-- apenas `ADMINISTRACAO` pode vincular/desvincular enquanto a temporada permitir alteração estrutural;
-- temporada `ENCERRADA` não permite alterar suas associações sem reabertura;
+- não duplicar campeonato dentro da mesma temporada;
+- datas nominais da temporada não limitam automaticamente associação;
+- somente `ADMINISTRACAO` vincula/desvincula enquanto a temporada permitir alteração estrutural;
+- `ENCERRADA` exige reabertura antes de alterar associações;
 - desvincular não cancela campeonato, inscrição ou resultado;
-- associação/desassociação recalcula somente as projeções das temporadas afetadas;
-- cancelamento preserva associações e histórico, suspendendo apenas seu efeito esportivo.
+- associação/desassociação recalcula projeções afetadas;
+- cancelamento preserva associações e suspende efeito esportivo.
 
 ## Pontuação e penalidades
 
-A tabela de colocação pertence à temporada (`TemporadaPontuacao`) e usa a chave lógica `(cdTemporada, posicao, tipoClasse)`, com `tipoClasse` `COMUM` ou `OVERALL`.
+`TemporadaPontuacao` pertence à temporada, chave `(cdTemporada, posicao, tipoClasse)`, com `COMUM` ou `OVERALL`.
 
-A temporada não precisa pontuar todas as colocações. Colocação informada sem regra correspondente tem impacto zero; colocação não informada não equivale a `AUSENTE` e não gera penalidade.
+A temporada não precisa pontuar todas as colocações. Colocação informada sem regra tem impacto zero; colocação não informada não equivale a `AUSENTE`.
 
-`TemporadaPenalidade` trata separadamente `DESCLASSIFICACAO` e `AUSENCIA`, com unicidade `(cdTemporada, tipoPenalidade)`. Regra ausente significa impacto zero.
+`TemporadaPenalidade` trata `DESCLASSIFICACAO` e `AUSENCIA`, unicidade `(cdTemporada, tipoPenalidade)`. Regra ausente = zero.
 
-Cada `Resultado APROVADO` produz contribuição independente. Não existe agregação de penalidades por campeonato, categoria ou situação.
+Cada `Resultado APROVADO` produz contribuição independente. Não existe agregação por campeonato/categoria/situação.
 
-Pontuação e penalidade usam `BigDecimal(10,3)`. Pontuação pode ser positiva, zero ou negativa; penalidade pode ser zero ou negativa; ranking final também pode ser negativo.
+Pontuação e penalidade usam `BigDecimal(10,3)`; ranking pode ser negativo.
+
+## Alteração das regras de pontuação e penalidade
+
+Enquanto a temporada estiver `ATIVO`, profissionais com `ADMINISTRACAO` podem alterar as regras de `TemporadaPontuacao` e `TemporadaPenalidade`, inclusive quando já existirem resultados aprovados que utilizem essas regras.
+
+A configuração atual da temporada é a verdade autoritativa para cálculo do ranking. O MVP não versiona a regra de pontuação/penalidade aplicada individualmente a cada resultado.
+
+Consequentemente, qualquer inclusão, alteração ou remoção de regra de pontuação ou penalidade deve provocar recálculo retroativo da projeção da temporada sobre todos os resultados aprovados que continuem válidos e elegíveis.
+
+Exemplo:
+
+```text
+Regra inicial:
+1º COMUM = 10
+
+Resultado R = 1º COMUM / APROVADO
+Ranking = 10
+
+Regra alterada:
+1º COMUM = 12
+
+Resultado R permanece o mesmo
+Ranking recalculado = 12
+```
+
+O resultado esportivo não é modificado; muda apenas sua interpretação pela temporada.
+
+A mesma regra vale para penalidades. Se `AUSENCIA` passar de `-2` para `-3`, todas as ausências aprovadas, válidas e elegíveis daquela temporada passam a contribuir com `-3` no recálculo.
+
+Não persistir no `Resultado` uma cópia da pontuação ou penalidade aplicada como verdade histórica autoritativa. O histórico de alterações administrativas da configuração deve ser auditável, mas o ranking corrente sempre utiliza a configuração atual da temporada.
+
+Temporada `ENCERRADA` não permite alteração dessas regras sem reabertura para `ATIVO`.
 
 ## Interpretação do Resultado
 
 ```text
-CLASSIFICADO -> colocacao + tipoClasse -> TemporadaPontuacao
-DESCLASSIFICADO -> TemporadaPenalidade.DESCLASSIFICACAO
-AUSENTE -> TemporadaPenalidade.AUSENCIA
+CLASSIFICADO -> colocacao + tipoClasse -> TemporadaPontuacao atual
+DESCLASSIFICADO -> TemporadaPenalidade.DESCLASSIFICACAO atual
+AUSENTE -> TemporadaPenalidade.AUSENCIA atual
 ```
-
-Pontos calculados não são persistidos no `Resultado` como verdade autoritativa.
 
 ## Elegibilidade
 
-### Participação no ranking
+Atleta pode compor ranking quando temporada está `ATIVO` ou `ENCERRADA`, possui vínculo atual ativo com criador, inscrição confirmada/não cancelada em campeonato associado e conta não cancelada.
 
-Atleta pode compor o ranking de uma temporada esportivamente utilizável quando:
-
-1. temporada está `ATIVO` ou `ENCERRADA`;
-2. possui `VinculoProfissionalAtleta` atualmente `ATIVO` com o criador para composição corrente;
-3. possui inscrição confirmada e não cancelada em ao menos um campeonato associado;
-4. conta do atleta não está cancelada.
-
-Encerramento da temporada não remove atletas nem congela seu ranking. Encerramento do vínculo atual com o criador continua removendo o atleta da composição corrente sem apagar histórico.
-
-### Elegibilidade histórica do Resultado
-
-A referência temporal é `Campeonato.dtInicio`, não a data de lançamento/aprovação.
-
-Um resultado contribui quando:
+Para contribuição histórica:
 
 ```text
-Temporada não está CANCELADA
-E Campeonato associado à Temporada
+Temporada não CANCELADA
+E Campeonato associado
 E Resultado APROVADO
 E Inscricao CONFIRMADA e não CANCELADA
 E conta do atleta não cancelada
 E vinculoVigenteNaData(atleta, Temporada.cdCriador, Campeonato.dtInicio)
 ```
 
-Portanto, `ATIVO` e `ENCERRADA` permitem efeito esportivo. Apenas `CANCELADA` suspende a contribuição da temporada.
-
-A data em que o resultado foi lançado ou aprovado não precisa estar dentro do período nominal da temporada nem antes do encerramento. O que importa para a elegibilidade histórica é o campeonato já pertencer à temporada e as demais invariantes serem satisfeitas.
-
-Novo vínculo não torna retroativamente elegíveis campeonatos ocorridos durante período sem vínculo.
-
-Quando um campeonato está associado a mais de uma temporada, elegibilidade e impacto são avaliados independentemente para cada temporada.
+A data de lançamento/aprovação pode ser posterior ao encerramento. Novo vínculo não torna retroativamente elegíveis campeonatos ocorridos durante intervalo sem vínculo.
 
 ## Resultado tardio
 
-`Resultado` representa fato esportivo do campeonato e pode ser registrado posteriormente ao encerramento da temporada.
+Resultado é fato esportivo e pode ser registrado posteriormente ao encerramento. Resultado tardio aprovado de campeonato já associado passa a contribuir e recalcula ranking sem necessidade de reabrir a temporada.
 
-Exemplo:
-
-```text
-Temporada T -> ENCERRADA
-Campeonato C -> já associado à T
-Resultado do Atleta A -> ainda não lançado
-
-posteriormente:
-Resultado lançado -> PENDENTE_APROVACAO
-Resultado aprovado -> APROVADO
-                     -> passa a contribuir para T
-                     -> ranking de T é recalculado
-```
-
-Não é necessário reabrir a temporada apenas para registrar, aprovar, reprovar ou corrigir resultado tardio de campeonato já associado.
-
-A reabertura é necessária quando a operação pretendida altera a estrutura ou configuração da própria temporada.
+Reabertura é necessária somente para alterar estrutura/configuração da própria temporada.
 
 ## Ranking
 
-Ranking é projeção dinâmica, não entidade autoritativa. O total é a soma algébrica dos impactos de todos os resultados aprovados, válidos e historicamente elegíveis.
+Ranking é projeção dinâmica, não entidade autoritativa.
 
-Cada temporada possui sua própria projeção. Compartilhar campeonato entre temporadas não compartilha nem mistura rankings.
+```text
+TOTAL = soma(impacto atual de cada Resultado APROVADO válido e elegível)
+```
 
-O ranking de temporada `ENCERRADA` permanece calculável e pode mudar em razão de lançamento, aprovação, reprovação, correção ou cancelamento válido de resultado histórico.
+O ranking de `ENCERRADA` permanece calculável e pode mudar por resultado tardio, correção/cancelamento válido de resultado ou outros fatos esportivos permitidos.
 
-Cancelamento da temporada suspende sua projeção esportiva sem apagar os dados. Reativação exige recálculo com dados e regras vigentes.
+Alterações de pontuação/penalidade em temporada `ATIVO` recalculam retroativamente todo o ranking afetado usando as regras atuais.
 
-Ranking/consolidação por categoria permanece fora do MVP; `Categoria` continua mapeada no domínio por fazer parte de `Resultado`.
+Cada temporada possui projeção própria; compartilhar campeonato não mistura rankings.
+
+`CANCELADA` suspende projeção; reativação recalcula com dados e regras vigentes.
+
+Ranking por categoria permanece fora do MVP.
 
 ## Invariantes consolidadas
 
-- estados são exclusivamente `ATIVO`, `ENCERRADA` e `CANCELADA`;
+- estados exclusivamente `ATIVO`, `ENCERRADA`, `CANCELADA`;
 - temporada nasce `ATIVO`;
-- `ENCERRADA` pode ser reaberta para `ATIVO` com justificativa e auditoria;
+- `ENCERRADA` pode ser reaberta com justificativa/auditoria;
 - encerramento congela configuração estrutural, não fatos esportivos históricos;
-- temporada `ENCERRADA` aceita lançamento e processamento de resultados tardios de campeonatos já associados;
-- resultado tardio aprovado recalcula e pode alterar ranking de temporada `ENCERRADA`;
-- não é necessário reabrir temporada apenas para lançar/processar resultado tardio;
-- alteração estrutural de temporada `ENCERRADA` exige reabertura para `ATIVO`;
-- cancelamento e reativação exigem justificativa e auditoria;
-- temporada cancelada retorna, na reativação, ao estado anterior ao cancelamento;
-- somente `CANCELADA` suspende efeito esportivo da temporada;
-- `cdCriador` é permanente e imutável;
-- não existe transferência de titularidade;
-- um profissional pode possuir/administrar múltiplas temporadas `ATIVO` simultaneamente;
-- sobreposição temporal entre temporadas do mesmo profissional é permitida;
-- temporadas simultâneas podem possuir campeonatos distintos, parcialmente coincidentes ou iguais;
-- mesmo campeonato pode pertencer a múltiplas temporadas, inclusive ativas e do mesmo profissional;
+- `ENCERRADA` aceita resultados tardios e seu ranking continua dinâmico;
+- somente `CANCELADA` suspende efeito esportivo;
+- cancelamento/reativação/encerramento/reabertura preservam histórico auditável;
+- `cdCriador` permanente e imutável; sem transferência;
+- profissional pode ter múltiplas temporadas ativas simultâneas e sobrepostas;
+- mesmo campeonato pode pertencer a múltiplas temporadas;
 - `Inscricao` e `Resultado` não são duplicados por temporada;
-- cada temporada interpreta independentemente resultados de campeonato compartilhado;
+- cada temporada interpreta independentemente resultados compartilhados;
 - somente atletas vinculados ao criador compõem a temporada;
-- vínculo atual controla composição corrente e intervalo histórico controla elegibilidade do resultado na data do campeonato;
-- novo vínculo não produz retroatividade sobre período sem vínculo;
-- `ADMINISTRACAO` pode operar atletas da temporada contextualmente sem criar vínculo profissional-atleta;
-- `CONSULTA` somente visualiza dados individualizados dos próprios atletas vinculados;
+- vínculo atual controla composição e vínculo histórico na `Campeonato.dtInicio` controla elegibilidade histórica;
+- `ADMINISTRACAO` pode operar atletas contextualmente sem vínculo próprio;
+- `CONSULTA` somente vê individualmente seus atletas vinculados;
 - tabela de pontuação e penalidades pertencem à temporada;
+- configuração atual de pontuação/penalidade é autoritativa para o ranking;
+- regras de pontuação/penalidade não são versionadas por resultado no MVP;
+- alteração de pontuação/penalidade em `ATIVO` recalcula retroativamente todos os resultados válidos/elegíveis afetados;
+- resultado esportivo permanece inalterado quando sua pontuação muda por configuração da temporada;
+- histórico administrativo das alterações de configuração deve ser auditável;
+- `ENCERRADA` exige reabertura antes de alterar pontuação, penalidade ou associações;
 - cada resultado aprovado produz contribuição independente;
-- ausência de regra de pontuação/penalidade produz impacto zero;
-- `CLASSIFICADO` usa colocação/tipo de classe; `DESCLASSIFICADO` e `AUSENTE` usam penalidades específicas;
+- ausência de regra produz impacto zero;
 - ranking pode ser negativo;
-- categoria permanece no domínio, mas ranking por categoria está fora do MVP.
+- categoria permanece no domínio, ranking por categoria fora do MVP.
