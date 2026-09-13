@@ -2,6 +2,44 @@
 
 This repository uses Copilot custom instructions, agents, skills and prompt files to execute the approved MVP implementation plan incrementally.
 
+## Mandatory execution precondition
+
+The authoritative implementation base is `release`.
+
+Every autonomous implementation run must validate this before modifying files:
+
+```text
+current task / PR / working tree
+        |
+        v
+based on current release?
+      /       \
+    no         yes
+    |           |
+STOP            v
+PRECONDITION  mandatory context files present?
+FAILED          /       \
+              no         yes
+              |           |
+            STOP          v
+       PRECONDITION   discover next gate
+          FAILED
+```
+
+Mandatory context files include:
+
+- `AGENTS.md`
+- `.github/copilot-instructions.md`
+- `.github/COPILOT_AUTOMATION.md`
+- `.github/agents/implementation-orchestrator.md`
+- `.github/skills/implementation-plan/SKILL.md`
+- `.github/skills/verification-gates/SKILL.md`
+- `docs/Refinamentos Técinicos/MVP/revisao-transversal-plano-implementacao.md`
+
+A `copilot/*` branch name is not evidence that the task started from `release`.
+
+If a task is based on `main`, another stale branch, or a snapshot missing these files, the agent must stop without making implementation changes and report `PRECONDITION_FAILED`.
+
 ## Components
 
 ### Always-on instructions
@@ -42,6 +80,9 @@ Prompt files are convenience entry points; the durable behavior belongs in instr
 /implement-next-phase
         |
         v
+precondition gate
+        |
+        v
 implementation-orchestrator
         |
         +--> relevant specialist/skills
@@ -52,12 +93,29 @@ build + tests + migration checks
         v
 /review-current-phase
         |
-   PASS + evidence?
-      /      \
-    no        yes
-    |          |
- fix gate    next gate
+ local checks PASS?
+      /       \
+    no         yes
+    |           |
+ fix gate       v
+          required external CI?
+              /       \
+            yes         no
+             |           |
+       CI completed?      PASS
+          /      \
+        no        yes
+        |          |
+PENDING_EXTERNAL_CI   successful?
+                     /       \
+                   no         yes
+                   |           |
+                  FAIL        PASS
 ```
+
+Creating a pull request is not evidence that a gate passed.
+
+A mandatory check with status failed, cancelled, `action_required`, skipped when mandatory, or still pending cannot produce PASS.
 
 Do not request "implement the entire MVP" as one unbounded run. The goal is autonomous execution **inside each gated slice**, not removal of architecture/data-safety checkpoints.
 
