@@ -33,11 +33,20 @@ Estado operacional normal. Pode produzir efeitos esportivos, receber operações
 
 ### ENCERRADA
 
-Representa ciclo esportivo concluído, mas não congela fatos esportivos históricos.
+Representa ciclo esportivo concluído, mas não congela fatos esportivos históricos nem a gestão de acesso à temporada.
 
-Continua permitindo consulta, cálculo de ranking e lançamento/aprovação/reprovação/correção de resultados tardios referentes a campeonatos já associados. Alterações desses resultados recalculam automaticamente o ranking.
+Continua permitindo:
 
-O encerramento congela a configuração estrutural da temporada. Enquanto `ENCERRADA`, não se altera tabela de pontuação, penalidades ou composição de campeonatos. Para alteração estrutural, deve ser reaberta para `ATIVO`.
+- consulta;
+- cálculo de ranking;
+- lançamento/aprovação/reprovação/correção de resultados tardios referentes a campeonatos já associados;
+- recálculo automático do ranking quando esses fatos esportivos mudam;
+- inclusão e remoção de profissionais em `TemporadaProfissional`;
+- promoção ou rebaixamento entre `ADMINISTRACAO` e `CONSULTA`, respeitadas as regras de proteção do criador.
+
+O encerramento congela a configuração estrutural esportiva da temporada. Enquanto `ENCERRADA`, não se altera tabela de pontuação, penalidades ou composição de campeonatos. Para alteração estrutural esportiva, deve ser reaberta para `ATIVO`.
+
+A gestão de profissionais não exige reabertura, pois é controle de acesso e não altera pontuação, elegibilidade esportiva nem ranking.
 
 `ENCERRADA -> ATIVO` exige justificativa, responsável, data/hora e histórico auditável.
 
@@ -57,7 +66,28 @@ O criador possui autoridade administrativa por definição. Outros profissionais
 
 `CONSULTA` é leitura; dados individualizados limitam-se aos atletas da temporada com os quais o consultor também possua vínculo ativo.
 
-`cdCriador` é imutável; criador não pode ser removido/rebaixado e não existe transferência de titularidade no MVP.
+### Gestão de acesso em temporada encerrada
+
+A gestão de `TemporadaProfissional` continua permitida quando a temporada está `ENCERRADA`.
+
+Profissional com `ADMINISTRACAO` pode, inclusive após o encerramento:
+
+- incluir novo profissional;
+- remover logicamente acesso existente;
+- promover `CONSULTA -> ADMINISTRACAO`;
+- rebaixar `ADMINISTRACAO -> CONSULTA`;
+- manter histórico auditável de inclusão, remoção e alteração de permissão.
+
+Essas operações não exigem `ENCERRADA -> ATIVO` porque não alteram configuração esportiva nem recalculam ranking.
+
+Regras permanentes:
+
+- `cdCriador` é imutável;
+- criador não pode ser removido;
+- criador não pode ser rebaixado para `CONSULTA`;
+- não existe transferência de titularidade no MVP;
+- remover ou alterar acesso de profissional não apaga nem modifica atos históricos praticados por ele;
+- perda de `ADMINISTRACAO` impede novas operações administrativas a partir da alteração, mas preserva integralmente o histórico anterior.
 
 ## Composição e vínculo temporal
 
@@ -113,31 +143,13 @@ Enquanto a temporada estiver `ATIVO`, profissionais com `ADMINISTRACAO` podem al
 
 A configuração atual da temporada é a verdade autoritativa para cálculo do ranking. O MVP não versiona a regra de pontuação/penalidade aplicada individualmente a cada resultado.
 
-Consequentemente, qualquer inclusão, alteração ou remoção de regra de pontuação ou penalidade deve provocar recálculo retroativo da projeção da temporada sobre todos os resultados aprovados que continuem válidos e elegíveis.
-
-Exemplo:
-
-```text
-Regra inicial:
-1º COMUM = 10
-
-Resultado R = 1º COMUM / APROVADO
-Ranking = 10
-
-Regra alterada:
-1º COMUM = 12
-
-Resultado R permanece o mesmo
-Ranking recalculado = 12
-```
+Qualquer inclusão, alteração ou remoção de regra de pontuação ou penalidade provoca recálculo retroativo da projeção sobre todos os resultados aprovados que continuem válidos e elegíveis.
 
 O resultado esportivo não é modificado; muda apenas sua interpretação pela temporada.
 
-A mesma regra vale para penalidades. Se `AUSENCIA` passar de `-2` para `-3`, todas as ausências aprovadas, válidas e elegíveis daquela temporada passam a contribuir com `-3` no recálculo.
+O histórico administrativo das alterações de configuração deve ser auditável, mas o ranking corrente sempre utiliza a configuração atual.
 
-Não persistir no `Resultado` uma cópia da pontuação ou penalidade aplicada como verdade histórica autoritativa. O histórico de alterações administrativas da configuração deve ser auditável, mas o ranking corrente sempre utiliza a configuração atual da temporada.
-
-Temporada `ENCERRADA` não permite alteração dessas regras sem reabertura para `ATIVO`.
+Temporada `ENCERRADA` não permite alterar essas regras sem reabertura para `ATIVO`.
 
 ## Interpretação do Resultado
 
@@ -168,7 +180,7 @@ A data de lançamento/aprovação pode ser posterior ao encerramento. Novo vínc
 
 Resultado é fato esportivo e pode ser registrado posteriormente ao encerramento. Resultado tardio aprovado de campeonato já associado passa a contribuir e recalcula ranking sem necessidade de reabrir a temporada.
 
-Reabertura é necessária somente para alterar estrutura/configuração da própria temporada.
+Reabertura é necessária somente para alterar estrutura/configuração esportiva da própria temporada.
 
 ## Ranking
 
@@ -193,8 +205,11 @@ Ranking por categoria permanece fora do MVP.
 - estados exclusivamente `ATIVO`, `ENCERRADA`, `CANCELADA`;
 - temporada nasce `ATIVO`;
 - `ENCERRADA` pode ser reaberta com justificativa/auditoria;
-- encerramento congela configuração estrutural, não fatos esportivos históricos;
+- encerramento congela configuração estrutural esportiva, não fatos esportivos históricos nem gestão de acesso;
 - `ENCERRADA` aceita resultados tardios e seu ranking continua dinâmico;
+- gestão de `TemporadaProfissional` continua permitida em `ENCERRADA` sem reabertura;
+- inclusão, remoção, promoção e rebaixamento de profissionais não alteram ranking;
+- atos históricos de profissional removido/rebaixado permanecem preservados;
 - somente `CANCELADA` suspende efeito esportivo;
 - cancelamento/reativação/encerramento/reabertura preservam histórico auditável;
 - `cdCriador` permanente e imutável; sem transferência;
