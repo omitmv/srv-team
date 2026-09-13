@@ -114,16 +114,16 @@ Regras:
 
 A composição de atletas da temporada é determinada exclusivamente pelos vínculos do criador.
 
-Um atleta somente pode fazer parte esportivamente da temporada quando possuir `VinculoProfissionalAtleta` `ATIVO` com `Temporada.cdCriador`.
-
 Vínculos do atleta com administradores ou consultores da temporada não adicionam o atleta à temporada.
+
+`VinculoProfissionalAtleta` é a fonte autoritativa da relação entre atleta e profissional, inclusive para consultas históricas. Não deve existir `TemporadaAtleta` apenas para materializar essa relação no MVP.
 
 Exemplo:
 
 ```text
 Temporada criada pelo Profissional A
 
-Atleta X -> vínculo ATIVO com A
+Atleta X -> vínculo com A
 Atleta Y -> vínculo apenas com B, que é ADMINISTRACAO da temporada
 
 Atleta X pode integrar a temporada.
@@ -137,6 +137,37 @@ Portanto:
 - não deve existir inclusão indireta de atletas por administradores convidados;
 - um mesmo atleta pode possuir vínculo com o criador e também com outro profissional vinculado à temporada;
 - nesse caso, o segundo vínculo afeta a visibilidade própria desse profissional, mas não a pertença do atleta à temporada.
+
+### Vigência temporal do vínculo
+
+Para operações atuais, um vínculo está disponível quando seu estado atual é `ATIVO`.
+
+Para verificar se atleta e profissional possuíam relação válida em uma data passada, deve-se consultar o intervalo histórico do vínculo, e não exigir que o registro continue atualmente com status `ATIVO`.
+
+Conceitualmente:
+
+```text
+vinculoVigenteNaData(atleta, profissional, dataReferencia)
+
+= existe VinculoProfissionalAtleta em que
+  dtInicio <= dataReferencia
+  E
+  (dtEncerramento IS NULL OU dtEncerramento >= dataReferencia)
+```
+
+Um vínculo atualmente `ENCERRADO` pode, portanto, comprovar corretamente uma relação que estava vigente no passado.
+
+Quando um vínculo encerrado é retomado, deve ser criado novo `VinculoProfissionalAtleta`, preservando os intervalos históricos independentes.
+
+Exemplo:
+
+```text
+Vínculo #1: 01/01 -> 30/06
+sem vínculo: 01/07 -> 31/07
+Vínculo #2: 01/08 -> atual
+```
+
+O novo vínculo não preenche retroativamente o intervalo sem vínculo.
 
 ### Visibilidade e operação por tipo de acesso
 
@@ -350,24 +381,62 @@ Não persistir pontos ou penalidade calculada como verdade autoritativa no `Resu
 
 ## Elegibilidade
 
-Enquanto esportivamente utilizável, atleta integra a temporada quando:
+A elegibilidade possui uma dimensão atual e uma dimensão histórica.
 
-1. possui `VinculoProfissionalAtleta` `ATIVO` com o criador da temporada;
+### Participação atual no ranking
+
+Enquanto esportivamente utilizável, atleta aparece na composição/ranking corrente da temporada quando:
+
+1. possui `VinculoProfissionalAtleta` atualmente `ATIVO` com o criador da temporada;
 2. possui inscrição confirmada e não cancelada em ao menos um campeonato associado;
 3. conta do atleta não está cancelada.
 
-Elegibilidade é derivada.
+Quando o vínculo atual com o criador é encerrado, o atleta deixa imediatamente de compor o ranking corrente. Inscrições, resultados e histórico permanecem preservados.
 
-Vínculo com profissional administrador ou consultor da temporada não substitui o vínculo com o criador para fins de elegibilidade.
+Se posteriormente for criado novo vínculo `ATIVO` com o mesmo criador, o atleta volta automaticamente a poder compor a temporada, respeitadas as demais regras de elegibilidade.
+
+### Elegibilidade histórica de Resultado
+
+A retomada do vínculo não deve produzir retroatividade sobre campeonatos ocorridos em intervalos em que atleta e criador não possuíam vínculo.
+
+Para decidir se um `Resultado APROVADO` pode contribuir para a temporada, a referência temporal do vínculo é `Campeonato.dtInicio`, e não a data de lançamento ou aprovação do resultado.
+
+Assim, um resultado somente possui elegibilidade temporal para a temporada quando existia vínculo vigente entre atleta e criador em `Campeonato.dtInicio`.
+
+Exemplo:
+
+```text
+Vínculo #1: 01/01 -> 30/06
+Campeonato A: 10/03 -> elegível
+Campeonato B: 15/07 -> não elegível
+Vínculo #2: 01/08 -> atual
+Campeonato C: 10/08 -> elegível
+```
+
+Ao reativar a relação por um novo vínculo em 01/08, o Campeonato B não passa retroativamente a contribuir.
+
+Conceitualmente, um resultado contribui para a temporada quando, além das demais regras esportivas:
+
+```text
+Campeonato associado à Temporada
+E Resultado APROVADO
+E Inscricao CONFIRMADA e não CANCELADA
+E conta do atleta não cancelada
+E vinculoVigenteNaData(atleta, Temporada.cdCriador, Campeonato.dtInicio)
+```
+
+A situação atual do vínculo define a presença do atleta no ranking corrente; a vigência histórica na data do campeonato define quais resultados são esportivamente elegíveis para compor sua pontuação.
+
+Vínculo com profissional administrador ou consultor da temporada não substitui o vínculo com o criador para nenhuma dessas verificações.
 
 ## Ranking
 
 Ranking é projeção dinâmica e não entidade autoritativa no MVP.
 
-O total do atleta é a soma algébrica dos impactos de todos os `Resultado APROVADO` válidos na temporada:
+O total do atleta é a soma algébrica dos impactos de todos os `Resultado APROVADO` válidos e historicamente elegíveis na temporada:
 
 ```text
-TOTAL = soma(impacto de cada Resultado APROVADO válido)
+TOTAL = soma(impacto de cada Resultado APROVADO válido e elegível)
 ```
 
 O total pode ser positivo, zero ou negativo.
@@ -389,7 +458,13 @@ Qualquer regra específica de ranking por categoria deve ser refinada em etapa f
 - temporada possui exatamente um criador permanente no MVP;
 - `cdCriador` é imutável;
 - não existe transferência de titularidade da temporada no MVP;
-- somente atletas com vínculo `ATIVO` com o criador podem compor a temporada;
+- somente atletas com vínculo atual `ATIVO` com o criador podem compor o ranking corrente da temporada;
+- `VinculoProfissionalAtleta` preserva intervalos históricos de vigência e é a fonte autoritativa da relação atleta/profissional;
+- vínculo atualmente `ENCERRADO` pode comprovar relação válida em uma data passada;
+- novo vínculo após encerramento cria novo registro e não preenche retroativamente períodos sem vínculo;
+- elegibilidade histórica de resultado usa a vigência do vínculo na `Campeonato.dtInicio`;
+- encerrar vínculo com o criador remove o atleta do ranking corrente sem apagar inscrições, resultados ou histórico;
+- novo vínculo ativo permite retorno ao ranking corrente, mas não torna elegíveis campeonatos ocorridos durante período sem vínculo;
 - vínculo de atleta com administrador ou consultor não adiciona esse atleta à temporada;
 - qualquer `ADMINISTRACAO` pode gerenciar acessos de outros profissionais;
 - administrador pode auxiliar o criador nos lançamentos dos atletas da temporada mesmo sem vínculo profissional-atleta próprio com eles;
