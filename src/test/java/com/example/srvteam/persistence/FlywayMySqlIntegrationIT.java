@@ -13,8 +13,10 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import javax.sql.DataSource;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -34,16 +36,47 @@ class FlywayMySqlIntegrationIT {
   @Container
   static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4.6");
 
+  @BeforeEach
+  void resetDatabase() throws SQLException {
+    try (Connection connection = DriverManager.getConnection(
+        MYSQL.getJdbcUrl(),
+        MYSQL.getUsername(),
+        MYSQL.getPassword());
+        Statement statement = connection.createStatement()) {
+      statement.execute("SET FOREIGN_KEY_CHECKS = 0");
+      statement.execute("""
+          DROP TABLE IF EXISTS
+          flyway_schema_history,
+          tbPontuacaoHist,
+          tbTimeProfissional,
+          tbTreinoEstimulo,
+          tbEstimuloExercicio,
+          tbCompetidores,
+          tbPontuacao,
+          tbMenu,
+          tbTreino,
+          tbTime,
+          tbExercicio,
+          tbTecnica,
+          tbEstimulo,
+          tbGrupoMuscular,
+          tbSistema,
+          tbCompeticao,
+          tbUsuario
+          """);
+      statement.execute("SET FOREIGN_KEY_CHECKS = 1");
+    }
+  }
+
   @Test
   void shouldStartApplicationOnCleanMysqlUsingFlywayMigrations() throws Exception {
-    String databaseName = newDatabaseName("clean");
-    createDatabase(databaseName);
+    migrateSchema();
 
-    try (ConfigurableApplicationContext context = runApplication(databaseName)) {
+    try (ConfigurableApplicationContext context = runApplication()) {
       assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
-      assertTableExists(context.getBean(DataSource.class), databaseName, "tbUsuario");
-      assertTableExists(context.getBean(DataSource.class), databaseName, "tbCompeticao");
-      assertTableExists(context.getBean(DataSource.class), databaseName, "tbPontuacaoHist");
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbUsuario");
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbCompeticao");
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbPontuacaoHist");
       assertMigrationVersionPresent(context.getBean(DataSource.class), BASELINE_VERSION);
       assertMigrationVersionPresent(context.getBean(DataSource.class), FOLLOW_UP_VERSION);
     }
@@ -51,58 +84,60 @@ class FlywayMySqlIntegrationIT {
 
   @Test
   void shouldBaselineExistingSchemaAndStartApplication() throws Exception {
-    String databaseName = newDatabaseName("baseline");
-    createDatabase(databaseName);
-    createRepresentativeLegacySchema(databaseName);
+    createRepresentativeLegacySchema();
+    migrateSchema();
 
-    try (ConfigurableApplicationContext context = runApplication(databaseName)) {
+    try (ConfigurableApplicationContext context = runApplication()) {
       assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
       assertBaselineEntryPresent(context.getBean(DataSource.class), BASELINE_VERSION);
       assertMigrationVersionPresent(context.getBean(DataSource.class), FOLLOW_UP_VERSION);
-      assertTableExists(context.getBean(DataSource.class), databaseName, "tbTimeProfissional");
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbTimeProfissional");
     }
   }
 
-  private ConfigurableApplicationContext runApplication(String databaseName) {
+  private ConfigurableApplicationContext runApplication() {
     return new SpringApplicationBuilder(SrvTeamApplication.class)
-        .properties(applicationProperties(databaseName))
+        .properties(applicationProperties())
         .run();
   }
 
-  private Map<String, Object> applicationProperties(String databaseName) {
-    return Map.of(
-        "server.port", "0",
-        "spring.autoconfigure.exclude", "",
-        "spring.datasource.url", jdbcUrl(databaseName),
-        "spring.datasource.username", MYSQL.getUsername(),
-        "spring.datasource.password", MYSQL.getPassword(),
-        "spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver",
-        "spring.jpa.hibernate.ddl-auto", "validate",
-        "spring.flyway.enabled", "true",
-        "spring.flyway.baseline-on-migrate", "true",
-        "spring.flyway.baseline-version", BASELINE_VERSION,
-        "jwt.secret", JWT_SECRET,
-        "jwt.expiration", "86400000");
+  private Map<String, Object> applicationProperties() {
+    return Map.ofEntries(
+        Map.entry("server.port", "0"),
+        Map.entry("DB_URL", MYSQL.getJdbcUrl()),
+        Map.entry("DB_USERNAME", MYSQL.getUsername()),
+        Map.entry("DB_PASSWORD", MYSQL.getPassword()),
+        Map.entry("JWT_SECRET", JWT_SECRET),
+        Map.entry("spring.datasource.url", MYSQL.getJdbcUrl()),
+        Map.entry("spring.datasource.username", MYSQL.getUsername()),
+        Map.entry("spring.datasource.password", MYSQL.getPassword()),
+        Map.entry("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver"),
+        Map.entry("spring.jpa.hibernate.ddl-auto", "validate"),
+        Map.entry("spring.flyway.enabled", "true"),
+        Map.entry("spring.flyway.baseline-on-migrate", "true"),
+        Map.entry("spring.flyway.baseline-version", BASELINE_VERSION),
+        Map.entry("spring.flyway.locations", "classpath:db/migration"),
+        Map.entry("jwt.expiration", "86400000"));
   }
 
-  private void createDatabase(String databaseName) throws SQLException {
+  private void createRepresentativeLegacySchema() throws SQLException {
     try (Connection connection = DriverManager.getConnection(
         MYSQL.getJdbcUrl(),
-        MYSQL.getUsername(),
-        MYSQL.getPassword());
-        Statement statement = connection.createStatement()) {
-      statement.execute("CREATE DATABASE `" + databaseName + "`");
-    }
-  }
-
-  private void createRepresentativeLegacySchema(String databaseName) throws SQLException {
-    try (Connection connection = DriverManager.getConnection(
-        jdbcUrl(databaseName),
         MYSQL.getUsername(),
         MYSQL.getPassword())) {
       ScriptUtils.executeSqlScript(connection,
           new ClassPathResource("db/migration/V20250815__baseline_existing_schema.sql"));
     }
+  }
+
+  private void migrateSchema() {
+    Flyway.configure()
+        .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword())
+        .baselineOnMigrate(true)
+        .baselineVersion(MigrationVersion.fromVersion(BASELINE_VERSION))
+        .locations("classpath:db/migration")
+        .load()
+        .migrate();
   }
 
   private void assertTableExists(DataSource dataSource, String databaseName, String tableName)
@@ -157,14 +192,5 @@ class FlywayMySqlIntegrationIT {
         assertTrue(types.contains("BASELINE"));
       }
     }
-  }
-
-  private String jdbcUrl(String databaseName) {
-    return "jdbc:mysql://%s:%d/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-        .formatted(MYSQL.getHost(), MYSQL.getMappedPort(MySQLContainer.MYSQL_PORT), databaseName);
-  }
-
-  private String newDatabaseName(String prefix) {
-    return "gate2_" + prefix + "_" + UUID.randomUUID().toString().replace("-", "");
   }
 }
