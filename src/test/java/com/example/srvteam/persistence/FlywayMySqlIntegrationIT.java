@@ -1,6 +1,8 @@
 package com.example.srvteam.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.srvteam.SrvTeamApplication;
@@ -79,6 +81,7 @@ class FlywayMySqlIntegrationIT {
       assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbPontuacaoHist");
       assertMigrationVersionPresent(context.getBean(DataSource.class), BASELINE_VERSION);
       assertMigrationVersionPresent(context.getBean(DataSource.class), FOLLOW_UP_VERSION);
+      assertDecimalPontuacaoColumnMetadata(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbPontuacao", "pontuacao");
     }
   }
 
@@ -89,9 +92,13 @@ class FlywayMySqlIntegrationIT {
 
     try (ConfigurableApplicationContext context = runApplication()) {
       assertEquals("validate", context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbUsuario");
+      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbTimeProfissional");
+      assertFlywayHistoryPresent(context.getBean(DataSource.class), "flyway_schema_history");
       assertBaselineEntryPresent(context.getBean(DataSource.class), BASELINE_VERSION);
       assertMigrationVersionPresent(context.getBean(DataSource.class), FOLLOW_UP_VERSION);
-      assertTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbTimeProfissional");
+      assertDecimalPontuacaoColumnMetadata(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbPontuacao", "pontuacao");
+      assertLegacyTableExists(context.getBean(DataSource.class), MYSQL.getDatabaseName(), "tbTimeProfissional");
     }
   }
 
@@ -126,7 +133,7 @@ class FlywayMySqlIntegrationIT {
         MYSQL.getUsername(),
         MYSQL.getPassword())) {
       ScriptUtils.executeSqlScript(connection,
-          new ClassPathResource("db/migration/V20250815__baseline_existing_schema.sql"));
+          new ClassPathResource("db/legacy/V20250814__legacy_schema_before_flyway.sql"));
     }
   }
 
@@ -158,6 +165,15 @@ class FlywayMySqlIntegrationIT {
     }
   }
 
+  private void assertLegacyTableExists(DataSource dataSource, String databaseName, String tableName)
+      throws SQLException {
+    assertTableExists(dataSource, databaseName, tableName);
+  }
+
+  private void assertFlywayHistoryPresent(DataSource dataSource, String tableName) throws SQLException {
+    assertTableExists(dataSource, MYSQL.getDatabaseName(), tableName);
+  }
+
   private void assertMigrationVersionPresent(DataSource dataSource, String version) throws SQLException {
     try (Connection connection = dataSource.getConnection();
         PreparedStatement statement = connection.prepareStatement("""
@@ -177,7 +193,7 @@ class FlywayMySqlIntegrationIT {
   private void assertBaselineEntryPresent(DataSource dataSource, String version) throws SQLException {
     try (Connection connection = dataSource.getConnection();
         PreparedStatement statement = connection.prepareStatement("""
-            SELECT type
+            SELECT type, version, description
             FROM flyway_schema_history
             WHERE version = ?
             ORDER BY installed_rank
@@ -187,9 +203,35 @@ class FlywayMySqlIntegrationIT {
       try (ResultSet resultSet = statement.executeQuery()) {
         List<String> types = new ArrayList<>();
         while (resultSet.next()) {
-          types.add(resultSet.getString(1));
+          types.add(resultSet.getString("type"));
+          assertNotNull(resultSet.getString("version"));
+          assertNotNull(resultSet.getString("description"));
         }
         assertTrue(types.contains("BASELINE"));
+      }
+    }
+  }
+
+  private void assertDecimalPontuacaoColumnMetadata(
+      DataSource dataSource,
+      String databaseName,
+      String tableName,
+      String columnName) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            SELECT DATA_TYPE, NUMERIC_PRECISION, NUMERIC_SCALE
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = ? AND column_name = ?
+            """)) {
+      statement.setString(1, databaseName);
+      statement.setString(2, tableName);
+      statement.setString(3, columnName);
+
+      try (ResultSet resultSet = statement.executeQuery()) {
+        assertTrue(resultSet.next());
+        assertEquals("decimal", resultSet.getString("DATA_TYPE"));
+        assertEquals(10, resultSet.getInt("NUMERIC_PRECISION"));
+        assertEquals(3, resultSet.getInt("NUMERIC_SCALE"));
       }
     }
   }
