@@ -2,6 +2,18 @@
 
 This repository is executing the MVP implementation plan documented under `docs/Refinamentos Técinicos/MVP/`.
 
+## Authoritative execution context
+
+The authoritative implementation base branch is `release`.
+
+Before changing production code, build files, configuration, migrations, or tests as part of the MVP implementation plan:
+
+1. verify that the task/PR is based on the current `release` branch or that the working tree was created from the current `release` HEAD;
+2. verify that the current snapshot contains `AGENTS.md`, `.github/COPILOT_AUTOMATION.md`, `.github/agents/implementation-orchestrator.md`, `.github/skills/implementation-plan/SKILL.md`, `.github/skills/verification-gates/SKILL.md`, and `docs/Refinamentos Técinicos/MVP/revisao-transversal-plano-implementacao.md`;
+3. if the base is `main`, another stale branch, or mandatory context is missing, stop before modifying files and report `PRECONDITION_FAILED`.
+
+Do not infer the authoritative base from a task name or `copilot/*` branch name. Validate the actual repository/base state.
+
 ## Source of truth
 
 Before changing production code, read:
@@ -34,6 +46,7 @@ Prefer the simplest design that preserves the documented invariants. Do not intr
 - Avoid `CascadeType.ALL` across aggregate boundaries.
 - `@Version` protects concurrent changes to the same row only. Cross-row invariants require database constraints and/or explicit locking.
 - Translate expected uniqueness/concurrency conflicts to HTTP 409.
+- H2 must not substitute for required MySQL/Testcontainers verification when correctness depends on MySQL behavior.
 
 ## Domain invariants
 
@@ -58,17 +71,20 @@ Do not log credentials, JWTs, database secrets, or personal access tokens. Never
 
 ## Tests and completion criteria
 
-A task is not complete merely because it compiles. For each implementation slice:
+A task is not complete merely because it compiles, commits, pushes, or opens a PR. For each implementation slice:
 
 1. implement the smallest coherent change;
 2. add/update unit tests for business rules;
 3. add MySQL/Testcontainers integration tests for persistence, constraints, migrations, locking, or SQL behavior when applicable;
 4. run the relevant Maven verification commands;
 5. inspect failures rather than weakening tests or constraints;
-6. report files changed, migrations introduced, tests run, remaining risks, and the next implementation gate.
+6. inspect CI/check state when available;
+7. report files changed, migrations introduced, tests run, remaining risks, and the next implementation gate only if the current gate actually passed.
+
+A required check that is failed, cancelled, `action_required`, pending, skipped when mandatory, or not executed even though available is not PASS. If required external CI has not completed or cannot be observed yet, report `PENDING_EXTERNAL_CI` rather than completion.
 
 Do not delete legacy structures until the approved migration, compatibility, and rollback conditions have been satisfied.
 
 ## Autonomous execution
 
-When asked to implement the plan or the next phase, first determine the current completed gate from repository state. Execute only the next safe implementation slice unless the user explicitly requests a broader batch. Stop and surface a blocker when continuing would require inventing business data, weakening an invariant, exposing a secret, or making an undocumented product decision.
+When asked to implement the plan or the next phase, first validate the authoritative execution context and then determine the current completed gate from repository state. Execute only the next safe implementation slice unless the user explicitly requests a broader batch. Stop and surface a blocker when continuing would require inventing business data, weakening an invariant, exposing a secret, or making an undocumented product decision.
