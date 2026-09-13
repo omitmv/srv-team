@@ -2,6 +2,7 @@ package com.example.srvteam.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -25,9 +26,9 @@ public class SecurityConfig {
     .authorizeHttpRequests(authz -> authz
       // Endpoints públicos (não precisam de autenticação)
       .requestMatchers("/v1/usuario/login").permitAll()
-      .requestMatchers("POST", "/v1/usuario").permitAll() // Criação de usuário
+      .requestMatchers(HttpMethod.POST, "/v1/usuario").permitAll() // Criação de usuário
       .requestMatchers("/actuator/**").permitAll()
-      .requestMatchers("POST", "/v1/automacao").permitAll() // Endpoint para automação
+      .requestMatchers(HttpMethod.POST, "/v1/automacao").permitAll() // Endpoint para automação
 
       // Todos os outros endpoints precisam de autenticação
       .anyRequest().authenticated())
