@@ -1,0 +1,49 @@
+name: Verify
+
+on:
+  push:
+    branches:
+      - release
+      - "copilot/**"
+  pull_request:
+    branches:
+      - release
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Verify with Maven Wrapper
+        run: ./mvnw --batch-mode clean verify
+
+  maven4-compatibility:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Download Maven 4 RC
+        run: |
+          curl -fsSL https://archive.apache.org/dist/maven/maven-4/4.0.0-rc-6/binaries/apache-maven-4.0.0-rc-6-bin.tar.gz \
+            | tar -xz
+
+      - name: Validate with Maven 4 RC
+        run: ./apache-maven-4.0.0-rc-6/bin/mvn --batch-mode -DskipTests verify
