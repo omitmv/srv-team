@@ -19,6 +19,10 @@ Campos conceituais:
 - `dtCadastro`
 - `dtCancelamento`
 - `cdResponsavelCancelamento`
+- `motivoCancelamento`
+- `dtReativacao`
+- `cdResponsavelReativacao`
+- `motivoReativacao`
 - auditoria
 
 `cdCriador` identifica de forma permanente o profissional que criou a temporada. No MVP não existe transferência de titularidade da temporada.
@@ -32,9 +36,15 @@ Estados:
 - `ENCERRADA`
 - `CANCELADA`
 
-`CANCELADA` é terminal. Cancelamento é lógico, não apaga campeonatos, inscrições ou resultados e não permite reativação da mesma temporada. Nova utilização equivalente exige nova temporada e novo ID.
+`CANCELADA` não é terminal. O cancelamento é lógico e preserva campeonatos, inscrições, resultados, vínculos profissionais, pontuação, penalidades e histórico.
 
-Criador e administradores com `ADMINISTRACAO` podem cancelar enquanto a temporada não estiver cancelada. Permissão `CONSULTA` não permite cancelamento.
+A temporada cancelada pode ser reativada, retornando ao estado operacional aplicável conforme as regras do ciclo de vida definidas para o MVP.
+
+Cancelamento e reativação exigem sempre justificativa obrigatória, responsável e data/hora da transição.
+
+Criador e administradores com `ADMINISTRACAO` podem cancelar ou reativar a temporada, respeitando as demais regras do ciclo de vida. Permissão `CONSULTA` não permite alteração de status.
+
+Toda transição de cancelamento ou reativação deve ser auditável e preservar o histórico das transições anteriores; a reativação não deve apagar os dados do cancelamento anterior.
 
 ## Acesso de profissionais à temporada
 
@@ -209,7 +219,8 @@ Invariantes:
 - apenas profissional com `ADMINISTRACAO` pode vincular ou desvincular campeonato;
 - adicionar/remover campeonato altera elegibilidade e ranking;
 - remover associação não cancela campeonato, inscrição ou resultado;
-- temporada cancelada preserva composição apenas para histórico.
+- temporada cancelada preserva composição e histórico, mas não produz efeito esportivo enquanto permanecer cancelada;
+- reativação restabelece a utilização da mesma temporada e de sua composição preservada, respeitando as demais regras de elegibilidade vigentes.
 
 ## Pontuação por colocação
 
@@ -387,13 +398,16 @@ A elegibilidade possui uma dimensão atual e uma dimensão histórica.
 
 Enquanto esportivamente utilizável, atleta aparece na composição/ranking corrente da temporada quando:
 
-1. possui `VinculoProfissionalAtleta` atualmente `ATIVO` com o criador da temporada;
-2. possui inscrição confirmada e não cancelada em ao menos um campeonato associado;
-3. conta do atleta não está cancelada.
+1. temporada não está `CANCELADA`;
+2. possui `VinculoProfissionalAtleta` atualmente `ATIVO` com o criador da temporada;
+3. possui inscrição confirmada e não cancelada em ao menos um campeonato associado;
+4. conta do atleta não está cancelada.
 
 Quando o vínculo atual com o criador é encerrado, o atleta deixa imediatamente de compor o ranking corrente. Inscrições, resultados e histórico permanecem preservados.
 
 Se posteriormente for criado novo vínculo `ATIVO` com o mesmo criador, o atleta volta automaticamente a poder compor a temporada, respeitadas as demais regras de elegibilidade.
+
+Enquanto a temporada estiver cancelada, sua projeção esportiva fica suspensa. A reativação restaura a projeção a partir dos dados preservados e das regras de elegibilidade vigentes naquele momento.
 
 ### Elegibilidade histórica de Resultado
 
@@ -418,7 +432,8 @@ Ao reativar a relação por um novo vínculo em 01/08, o Campeonato B não passa
 Conceitualmente, um resultado contribui para a temporada quando, além das demais regras esportivas:
 
 ```text
-Campeonato associado à Temporada
+Temporada não CANCELADA
+E Campeonato associado à Temporada
 E Resultado APROVADO
 E Inscricao CONFIRMADA e não CANCELADA
 E conta do atleta não cancelada
@@ -443,6 +458,8 @@ O total pode ser positivo, zero ou negativo.
 
 Alterações nas tabelas de pontuação ou valores de penalidade exigem recálculo das projeções afetadas.
 
+Cancelamento da temporada suspende sua projeção esportiva sem apagar os dados que a compõem. Reativação exige novo cálculo da projeção com os dados e regras vigentes.
+
 ## Categoria no ranking — fora do MVP
 
 A dimensão `Categoria` permanece mapeada no domínio porque faz parte do `Resultado` e poderá futuramente ser utilizada para rankings, filtros ou consolidações específicas por categoria.
@@ -458,6 +475,13 @@ Qualquer regra específica de ranking por categoria deve ser refinada em etapa f
 - temporada possui exatamente um criador permanente no MVP;
 - `cdCriador` é imutável;
 - não existe transferência de titularidade da temporada no MVP;
+- cancelamento da temporada é lógico e não apaga dados históricos;
+- cancelamento exige justificativa obrigatória, responsável e data/hora;
+- temporada cancelada pode ser reativada;
+- reativação exige justificativa obrigatória, responsável e data/hora;
+- histórico de cancelamentos e reativações deve ser preservado e auditável;
+- temporada cancelada não produz efeito esportivo enquanto permanecer cancelada;
+- reativação recalcula/restaura a projeção conforme dados e regras vigentes;
 - somente atletas com vínculo atual `ATIVO` com o criador podem compor o ranking corrente da temporada;
 - `VinculoProfissionalAtleta` preserva intervalos históricos de vigência e é a fonte autoritativa da relação atleta/profissional;
 - vínculo atualmente `ENCERRADO` pode comprovar relação válida em uma data passada;
@@ -490,5 +514,4 @@ Qualquer regra específica de ranking por categoria deve ser refinada em etapa f
 - `DESCLASSIFICADO` e `AUSENTE` não usam colocação artificial;
 - ranking pode apresentar total negativo;
 - categoria permanece mapeada, mas ranking/consolidação por categoria está fora do MVP;
-- temporada cancelada não pode ser reativada;
-- cancelamento da temporada não cancela resultados, inscrições, campeonatos ou vínculos.
+- cancelamento ou reativação da temporada não cancela nem altera automaticamente resultados, inscrições, campeonatos ou vínculos.
