@@ -76,48 +76,71 @@ Prompt files are convenience entry points; the durable behavior belongs in instr
 
 ## Recommended execution loop
 
+Routine implementation gates use local verification as the completion authority:
+
 ```text
-/implement-next-phase
+analysis/refinement
         |
         v
-precondition gate
+small implementation slice
         |
         v
-implementation-orchestrator
-        |
-        +--> relevant specialist/skills
+narrow local tests during iteration
         |
         v
-build + tests + migration checks
+full local `mvnw clean verify`
         |
-        v
-/review-current-phase
-        |
- local checks PASS?
+ local verification PASS?
       /       \
     no         yes
     |           |
  fix gate       v
-          required external CI?
-              /       \
-            yes         no
-             |           |
-       CI completed?      PASS
-          /      \
-        no        yes
-        |          |
-PENDING_EXTERNAL_CI   successful?
-                     /       \
-                   no         yes
-                   |           |
-                  FAIL        PASS
+          review current gate
+                |
+                v
+              PASS
+                |
+                v
+              PR/merge
 ```
 
-Creating a pull request is not evidence that a gate passed.
+GitHub Actions is not required for each gate or PR.
 
-A mandatory check with status failed, cancelled, `action_required`, skipped when mandatory, or still pending cannot produce PASS.
+The `Verify` workflow is manually triggered for release-level validation, such as a release candidate, homologation candidate, or pre-production build:
 
-Do not request "implement the entire MVP" as one unbounded run. The goal is autonomous execution **inside each gated slice**, not removal of architecture/data-safety checkpoints.
+```text
+release candidate
+        |
+        v
+manually trigger GitHub Actions Verify
+        |
+ CI successful?
+      /       \
+    no         yes
+    |           |
+   FAIL     PASS_RELEASE
+```
+
+Creating a pull request is not evidence that a gate passed. Local verification must still be complete and reproducible.
+
+Do not request "implement the entire MVP" as one unbounded run. Prefer analysis first and then small coherent implementation slices. The goal is autonomous execution inside a bounded slice, not removal of architecture/data-safety checkpoints.
+
+## Execution strategy and Copilot consumption
+
+Prefer local VS Code Copilot Agent Mode for implementation. Keep cloud-agent usage for cases where remote execution provides concrete value.
+
+Recommended workflow:
+
+1. analyze the next gate without changes;
+2. review architecture/business interpretation;
+3. implement one coherent sub-slice at a time;
+4. run narrow tests during iteration;
+5. run `mvnw clean verify` before closing the gate;
+6. create/review the PR;
+7. merge after gate review;
+8. run GitHub Actions manually only at release-level checkpoints.
+
+This reduces unnecessary remote agent/CI consumption while keeping deterministic local evidence for every gate.
 
 ## MCP strategy
 
@@ -127,22 +150,18 @@ For the current repository implementation, all approved product/architecture con
 
 Useful MCP integrations when available:
 
-1. **GitHub MCP** — repository/issues/PR/actions context; GitHub provides this by default to Copilot cloud agent.
-2. **Playwright MCP** — useful later for end-to-end frontend/browser validation; also provided by default to Copilot cloud agent.
+1. **GitHub MCP** — repository/issues/PR/actions context.
+2. **Playwright MCP** — useful later for end-to-end frontend/browser validation.
 3. **Confluence MCP** — recommended when corporate standards/documentation must be consulted during implementation. Configure this only with an approved corporate MCP endpoint/authentication model; do not commit credentials.
 4. Observability/database/service-catalog MCPs — add only when a concrete implementation gate requires those external tools.
-
-For GitHub cloud agent, repository-level MCP configuration is managed in GitHub repository Settings -> Copilot -> MCP servers. Secrets/variables must use the supported Copilot Agents secret mechanism, never a committed token.
 
 For local VS Code, MCP configuration can be workspace/user scoped. Do not commit local credentials into `.vscode/mcp.json` or another config file.
 
 ## Hooks
 
-Hooks are intentionally not enabled yet.
+Hooks are intentionally not required as a substitute for the explicit local verification gate.
 
-Reason: deterministic quality hooks should call the Maven Wrapper, but the Wrapper/platform modernization is the first implementation gate and is not yet guaranteed to be present/configured correctly. Adding an unconditional `mvnw verify` hook now would make Copilot sessions fail before the modernization gate is completed.
-
-After the modernization gate passes, consider a Copilot CLI/cloud-agent `agentStop` quality hook that runs a repository verification script. Keep the script itself in the repository so the same command can be used by humans, CI and agents.
+If an `agentStop` or equivalent quality hook is introduced later, it should call a repository-owned verification script using the Maven Wrapper and must not weaken or replace the manual evidence requirements of the current gate.
 
 ## Future useful skills
 
