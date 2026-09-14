@@ -62,7 +62,17 @@ Regras:
 - categoria utilizada historicamente não deve ser excluída fisicamente;
 - inativação impede novos lançamentos comuns, mas preserva resultados existentes.
 
-A normalização para unicidade deve desconsiderar diferenças irrelevantes de caixa e espaços externos. A estratégia técnica deve respeitar o SGBD adotado.
+A normalização canônica para unicidade deve:
+
+1. remover espaços nas extremidades;
+2. aplicar normalização Unicode `NFKD`;
+3. remover marcas Unicode combinantes/diacríticos;
+4. normalizar caixa usando `Locale.ROOT`;
+5. reduzir qualquer sequência de whitespace para um único espaço ASCII;
+6. aplicar `trim` novamente;
+7. preservar pontuação e símbolos.
+
+Assim, `SÃO   PAULO` e `Sao Paulo` produzem `sao paulo`, enquanto `Classe-A` e `Classe A` permanecem diferentes.
 
 ## Classe
 
