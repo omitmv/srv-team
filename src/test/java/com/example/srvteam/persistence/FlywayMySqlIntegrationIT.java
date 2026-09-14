@@ -16,6 +16,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.test.util.TestPropertyValues;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -83,25 +84,22 @@ class FlywayMySqlIntegrationIT {
 
   private ConfigurableApplicationContext runApplication() {
     return new SpringApplicationBuilder(SrvTeamApplication.class)
-        .properties(applicationProperties())
+        .initializers(context -> TestPropertyValues.of(
+            "DB_URL=" + MYSQL.getJdbcUrl(),
+            "DB_USERNAME=" + MYSQL.getUsername(),
+            "DB_PASSWORD=" + MYSQL.getPassword(),
+            "spring.datasource.url=" + MYSQL.getJdbcUrl(),
+            "spring.datasource.username=" + MYSQL.getUsername(),
+            "spring.datasource.password=" + MYSQL.getPassword(),
+            "spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver",
+            "spring.jpa.hibernate.ddl-auto=validate",
+            "spring.flyway.enabled=true",
+            "spring.flyway.locations=classpath:db/migration",
+            "server.port=0",
+            "JWT_SECRET=" + JWT_SECRET,
+            "jwt.expiration=86400000"
+        ).applyTo(context.getEnvironment()))
         .run();
-  }
-
-  private Map<String, Object> applicationProperties() {
-    return Map.ofEntries(
-        Map.entry("server.port", "0"),
-        Map.entry("DB_URL", MYSQL.getJdbcUrl()),
-        Map.entry("DB_USERNAME", MYSQL.getUsername()),
-        Map.entry("DB_PASSWORD", MYSQL.getPassword()),
-        Map.entry("JWT_SECRET", JWT_SECRET),
-        Map.entry("spring.datasource.url", MYSQL.getJdbcUrl()),
-        Map.entry("spring.datasource.username", MYSQL.getUsername()),
-        Map.entry("spring.datasource.password", MYSQL.getPassword()),
-        Map.entry("spring.datasource.driver-class-name", "com.mysql.cj.jdbc.Driver"),
-        Map.entry("spring.jpa.hibernate.ddl-auto", "validate"),
-        Map.entry("spring.flyway.enabled", "true"),
-        Map.entry("spring.flyway.locations", "classpath:db/migration"),
-        Map.entry("jwt.expiration", "86400000"));
   }
 
   private void migrateSchema() {
