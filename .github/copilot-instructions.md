@@ -71,19 +71,25 @@ Do not log credentials, JWTs, database secrets, or personal access tokens. Never
 
 ## Tests and completion criteria
 
+Routine implementation gates are validated locally. GitHub Actions is reserved for release-candidate/homologation/pre-production verification and is manually triggered.
+
 A task is not complete merely because it compiles, commits, pushes, or opens a PR. For each implementation slice:
 
 1. implement the smallest coherent change;
 2. add/update unit tests for business rules;
 3. add MySQL/Testcontainers integration tests for persistence, constraints, migrations, locking, or SQL behavior when applicable;
 4. run the relevant Maven verification commands;
-5. inspect failures rather than weakening tests or constraints;
-6. inspect CI/check state when available;
+5. before closing the gate, run full local verification, normally `mvnw clean verify` on Windows or `./mvnw clean verify` on Unix-like environments;
+6. inspect failures rather than weakening tests or constraints;
 7. report files changed, migrations introduced, tests run, remaining risks, and the next implementation gate only if the current gate actually passed.
 
-A required check that is failed, cancelled, `action_required`, pending, skipped when mandatory, or not executed even though available is not PASS. If required external CI has not completed or cannot be observed yet, report `PENDING_EXTERNAL_CI` rather than completion.
+A gate may be reported as `PASS` when the approved refinement is satisfied and all mandatory local checks pass. External CI is not required for routine gate completion.
 
-Do not delete legacy structures until the approved migration, compatibility, and rollback conditions have been satisfied.
+A mandatory local check that fails, is skipped when mandatory, or is not executed even though available is not PASS.
+
+When explicitly validating a release candidate, manually run GitHub Actions `Verify`; only then may release-level status be reported as `PASS_RELEASE` after CI succeeds.
+
+The legacy system is discontinued and the legacy database does not need to be preserved. Do not introduce legacy database baseline/migration compatibility requirements unless explicitly requested by a new product decision.
 
 ## Autonomous execution
 
