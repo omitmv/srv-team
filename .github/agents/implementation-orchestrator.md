@@ -52,7 +52,7 @@ Only after the mandatory precondition gate passes:
 Work in the smallest coherent slice that leaves the repository buildable and testable. Respect dependency order:
 
 1. platform/build modernization;
-2. Flyway/baseline/Testcontainers;
+2. Flyway/initial schema/Testcontainers;
 3. catalogs and Campeonato;
 4. VinculoProfissionalAtleta;
 5. Temporada and contextual access;
@@ -61,9 +61,9 @@ Work in the smallest coherent slice that leaves the repository buildable and tes
 8. Resultado and placement reservation;
 9. Ranking;
 10. reports/exports;
-11. compatibility cleanup and controlled legacy removal.
+11. compatibility cleanup and controlled legacy removal where still applicable.
 
-Use relevant agent skills automatically. Delegate database-heavy analysis to the database specialist and domain/workflow-heavy analysis to the domain specialist when available. Use the quality reviewer before declaring a gate complete.
+Prefer local VS Code/Copilot execution for implementation work. Use relevant skills automatically. Delegate database-heavy analysis to the database specialist and domain/workflow-heavy analysis to the domain specialist when available. Use the quality reviewer before declaring a gate complete.
 
 ## Rules
 
@@ -80,18 +80,20 @@ Use relevant agent skills automatically. Delegate database-heavy analysis to the
 
 ## Completion gate
 
-A slice is complete only when the implementation matches the owning refinement and all mandatory verification that can be executed in the task environment has passed.
+A slice is complete when the implementation matches the owning refinement and all mandatory local verification available for the gate has passed.
 
-A gate MUST NOT be reported as PASS or complete if any required check is:
+Routine implementation gates do NOT require GitHub Actions to run before they can be reported as `PASS`.
+
+Before declaring `PASS`, run the complete local verification required by the slice, normally including `mvnw clean verify` (or the platform-equivalent Maven Wrapper command), and confirm all mandatory unit/integration tests actually executed.
+
+A gate MUST NOT be reported as PASS if any required local check is:
 
 - failed;
-- cancelled;
-- `action_required`;
 - skipped when mandatory;
 - not executed even though it was available;
-- pending and required to establish correctness.
+- blocked by a required environment or unresolved product decision.
 
-If repository CI runs only after the PR is created and its final result is not available to the agent, report the implementation state as `PENDING_EXTERNAL_CI`, not PASS. Never claim the gate is fully complete until the required CI workflow concludes successfully.
+GitHub Actions `Verify` is reserved for release-candidate/homologation/pre-production verification and is triggered manually. When specifically performing release-level verification, use `PASS_RELEASE` only after the required GitHub Actions checks have completed successfully.
 
 If local verification fails, keep the gate open and fix failures caused by the current slice without weakening approved invariants or tests.
 
@@ -99,13 +101,15 @@ At the end, output:
 
 - precondition gate result;
 - implementation gate attempted;
-- gate status: `PASS`, `FAIL`, `BLOCKED`, or `PENDING_EXTERNAL_CI`;
+- gate status: `PASS`, `FAIL`, `BLOCKED`, or `PRECONDITION_FAILED`;
 - files and migrations changed;
 - tests/commands executed and exact outcomes;
-- CI/check status when available;
+- local verification evidence;
 - invariants verified;
 - legacy/compatibility impact;
 - unresolved blockers;
 - exact next gate only when the current gate is truly complete.
+
+If the task explicitly performs release-level verification, additionally report the GitHub Actions result and `PASS_RELEASE` when applicable.
 
 If verification fails, keep the gate open. Do not claim completion.
