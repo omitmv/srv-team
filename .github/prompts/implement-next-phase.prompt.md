@@ -24,23 +24,29 @@ Only after the precondition passes:
 3. Select the next incomplete dependency-safe gate.
 4. Read the phase-specific refinements that govern it.
 5. State the objective and measurable exit criteria.
-6. Implement the smallest coherent slice required to advance that gate.
-7. Use the relevant skills for platform modernization, Flyway, domain implementation, concurrency and verification.
-8. Run the applicable Maven/automated checks.
-9. Fix failures that are caused by your changes without weakening documented invariants or tests.
-10. Stop if continuing would require an undocumented product decision, invented legacy data, a missing secret/environment, or a weakened integrity rule.
-11. Do not treat PR creation as completion. Evaluate final verification status using the verification-gates status model.
+6. Prefer an analysis-first approach before implementation when the gate introduces new domain concepts or multiple decisions.
+7. Implement the smallest coherent slice required to advance that gate.
+8. Use the relevant skills for platform modernization, Flyway, domain implementation, concurrency and verification.
+9. Run narrow local tests during iteration.
+10. Before closing the gate, run the complete local verification required by the slice, normally `mvnw clean verify` on Windows or `./mvnw clean verify` on Unix-like environments.
+11. Fix failures caused by your changes without weakening documented invariants or tests.
+12. Stop if continuing would require an undocumented product decision, invented legacy data, a missing secret/environment, or a weakened integrity rule.
+13. Do not treat PR creation or GitHub Actions execution as routine gate completion. Evaluate the gate using local verification according to `verification-gates`.
+
+GitHub Actions `Verify` is reserved for manually triggered release-candidate/homologation/pre-production verification and is not required for each implementation gate.
 
 At the end report:
 
 - precondition result;
 - gate and slice attempted;
-- status: `PASS`, `FAIL`, `BLOCKED`, or `PENDING_EXTERNAL_CI`;
+- status: `PASS`, `FAIL`, `BLOCKED`, or `PRECONDITION_FAILED`;
 - files/migrations changed;
 - tests/commands executed and results;
-- CI/check status when observable;
+- local verification evidence;
 - invariants verified;
 - blockers/risks;
 - exact next gate only if the current gate is truly complete.
+
+If the task explicitly requests release-level verification, also report the manually triggered GitHub Actions result and use `PASS_RELEASE` only when it succeeds.
 
 Do not start the next gate in the same run unless it is an inseparable prerequisite of the current slice.
