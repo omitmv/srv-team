@@ -1,13 +1,6 @@
 name: Verify
 
 on:
-  push:
-    branches:
-      - release
-      - "copilot/**"
-  pull_request:
-    branches:
-      - release
   workflow_dispatch:
 
 permissions:
