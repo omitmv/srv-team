@@ -6,9 +6,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.example.srvteam.SrvTeamApplication;
 import com.example.srvteam.catalogo.model.Categoria;
 import com.example.srvteam.catalogo.model.Classe;
+import com.example.srvteam.catalogo.model.Organizador;
+import com.example.srvteam.catalogo.model.Pais;
+import com.example.srvteam.catalogo.model.Subdivisao;
 import com.example.srvteam.catalogo.model.TipoClasse;
 import com.example.srvteam.catalogo.repository.CategoriaRepository;
 import com.example.srvteam.catalogo.repository.ClasseRepository;
+import com.example.srvteam.catalogo.repository.OrganizadorRepository;
+import com.example.srvteam.catalogo.repository.PaisRepository;
+import com.example.srvteam.catalogo.repository.SubdivisaoRepository;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -39,6 +45,8 @@ class FlywayMySqlIntegrationIT {
 
   private static final String INITIAL_MIGRATION_VERSION = "20250815";
   private static final String CATALOG_MIGRATION_VERSION = "20260914";
+  private static final String SUPPORT_CATALOGS_MIGRATION_VERSION = "20260915";
+  private static final String ISO_SEED_MIGRATION_VERSION = "20260916";
   private static final String JWT_SECRET = "01234567890123456789012345678901";
 
   @Container
@@ -56,6 +64,9 @@ class FlywayMySqlIntegrationIT {
           DROP TABLE IF EXISTS
           flyway_schema_history,
           tbPontuacaoHist,
+          tbSubdivisao,
+          tbPais,
+          tbOrganizador,
           tbClasse,
           tbCategoria,
           tbTimeProfissional,
@@ -94,6 +105,11 @@ class FlywayMySqlIntegrationIT {
       assertFlywayHistoryPresent(dataSource, MYSQL.getDatabaseName(), "flyway_schema_history");
       assertMigrationVersionPresent(dataSource, INITIAL_MIGRATION_VERSION);
       assertMigrationVersionPresent(dataSource, CATALOG_MIGRATION_VERSION);
+      assertMigrationVersionPresent(dataSource, SUPPORT_CATALOGS_MIGRATION_VERSION);
+      assertMigrationVersionPresent(dataSource, ISO_SEED_MIGRATION_VERSION);
+      assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbOrganizador");
+      assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbPais");
+      assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbSubdivisao");
       assertDecimalPontuacaoColumnMetadata(dataSource, MYSQL.getDatabaseName(), "tbPontuacao", "pontuacao");
     }
   }
@@ -209,6 +225,75 @@ class FlywayMySqlIntegrationIT {
     }
   }
 
+  @Test
+  void shouldPersistSupportCatalogsAndEnforceMysqlConstraints() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      OrganizadorRepository organizadorRepository = context.getBean(OrganizadorRepository.class);
+      PaisRepository paisRepository = context.getBean(PaisRepository.class);
+      SubdivisaoRepository subdivisaoRepository = context.getBean(SubdivisaoRepository.class);
+      insertUser(dataSource);
+
+      Organizador inactive = new Organizador("Federação Águia", 1);
+      inactive.inativar(1);
+      organizadorRepository.saveAndFlush(inactive);
+      Organizador active = organizadorRepository.saveAndFlush(new Organizador("Federacao Aguia", 1));
+      assertEquals("federacao aguia", active.getNmOrganizadorNormalizado());
+      assertThrowsDataIntegrity(
+          () -> organizadorRepository.saveAndFlush(new Organizador("FEDERAÇÃO ÁGUIA", 1)));
+
+      Pais firstCountry = paisRepository.saveAndFlush(new Pais("ZZ", "ZZZ", "Test Country One"));
+      Pais secondCountry = paisRepository.saveAndFlush(new Pais("ZY", "ZYY", "Test Country Two"));
+        deactivate(dataSource, "tbPais", "cdPais = " + secondCountry.getCdPais());
+        assertEquals(1, count(dataSource, "tbPais", "codigoIso2 IN ('ZZ', 'ZY') AND flAtivo = b'1'"));
+      assertThrowsDataIntegrity(() -> paisRepository.saveAndFlush(new Pais("ZZ", "ZZX", "Duplicate Iso2")));
+      assertThrowsDataIntegrity(() -> paisRepository.saveAndFlush(new Pais("ZX", "ZZZ", "Duplicate Iso3")));
+
+        Subdivisao firstSubdivision = subdivisaoRepository.saveAndFlush(
+          new Subdivisao(firstCountry, "ZZ-ONE", "Test Subdivision One"));
+      subdivisaoRepository.saveAndFlush(new Subdivisao(secondCountry, "ZZ-ONE", "Test Subdivision Two"));
+        deactivate(dataSource, "tbSubdivisao", "cdSubdivisao = " + firstSubdivision.getCdSubdivisao());
+        assertEquals(1, count(dataSource, "tbSubdivisao", "codigoIso = 'ZZ-ONE' AND flAtivo = b'1'"));
+      assertThrowsDataIntegrity(() -> subdivisaoRepository.saveAndFlush(
+          new Subdivisao(firstCountry, "ZZ-ONE", "Duplicate Same Country")));
+      assertForeignKeyRejectsUnknownCountry(dataSource);
+
+      assertEquals(249, count(dataSource, "tbPais", "codigoIso2 <> 'ZZ' AND codigoIso2 <> 'ZY'"));
+      assertEquals(5046, count(dataSource, "tbSubdivisao", "codigoIso <> 'ZZ-ONE'"));
+      assertEquals(1, count(dataSource, "tbPais", "codigoIso2 = 'BR' AND codigoIso3 = 'BRA'"));
+      assertTrue(count(dataSource, "tbSubdivisao", "codigoIso = 'BR-SP'") > 0);
+      assertTrue(count(dataSource, "tbPais", "codigoIso2 = 'US'") > 0);
+    }
+  }
+
+  @Test
+  void shouldRejectConcurrentEquivalentActiveOrganizers() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      insertUser(dataSource);
+
+      List<Boolean> results = runConcurrentInserts(dataSource, connection -> {
+        try (PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbOrganizador (
+                nmOrganizador, nmOrganizadorNormalizado, flAtivo, dtCadastro, cdUsuarioCadastro)
+            VALUES (?, 'federacao aguia', b'1', NOW(6), 1)
+            """)) {
+          statement.setString(1, Thread.currentThread().getName().endsWith("1")
+              ? "Federação Águia" : "Federacao Aguia");
+          statement.executeUpdate();
+        }
+      }, "uk_tbOrganizador_nmOrganizadorAtiva");
+
+      assertConcurrentOutcome(results, 1);
+      assertEquals(1, count(dataSource, "tbOrganizador",
+          "nmOrganizadorNormalizado = 'federacao aguia' AND flAtivo = b'1'"));
+    }
+  }
+
   private void insertUser(DataSource dataSource) throws SQLException {
     try (Connection connection = dataSource.getConnection();
         PreparedStatement statement = connection.prepareStatement("""
@@ -310,12 +395,29 @@ class FlywayMySqlIntegrationIT {
     }
   }
 
+  private void deactivate(DataSource dataSource, String tableName, String predicate) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      assertEquals(1, statement.executeUpdate("UPDATE " + tableName + " SET flAtivo = b'0' WHERE " + predicate));
+    }
+  }
+
   private void assertForeignKeyRejectsUnknownCategory(DataSource dataSource) throws SQLException {
     try (Connection connection = dataSource.getConnection();
         PreparedStatement statement = connection.prepareStatement("""
             INSERT INTO tbClasse (
                 cdCategoria, nmClasse, nmClasseNormalizado, tipoClasse, flAtivo, dtCadastro, cdUsuarioCadastro)
             VALUES (999999, 'Orphan', 'orphan', 'COMUM', b'1', NOW(6), 1)
+            """)) {
+      assertThrowsSqlIntegrity(statement::executeUpdate);
+    }
+  }
+
+  private void assertForeignKeyRejectsUnknownCountry(DataSource dataSource) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbSubdivisao (cdPais, codigoIso, nmSubdivisao, flAtivo, dtCadastro)
+            VALUES (999999, 'ZZ-ORPHAN', 'Orphan Subdivision', b'1', NOW(6))
             """)) {
       assertThrowsSqlIntegrity(statement::executeUpdate);
     }
