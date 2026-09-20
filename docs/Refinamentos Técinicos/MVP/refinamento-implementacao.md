@@ -154,22 +154,22 @@ Não criar entidades esportivas específicas para PDF/Excel.
 
 Relatórios devem consumir query models/projections derivadas das mesmas regras usadas na tela.
 
-## Compatibilidade com `Competicao`
+## Substituição de `Competicao` por `Campeonato`
 
-A tabela física `tbCompeticao` pode ser evoluída no MVP em vez de criar imediatamente uma nova tabela `tbCampeonato`.
+A tabela física `tbCompeticao` será evoluída no MVP em vez de criar uma nova
+tabela `tbCampeonato`. A identidade física permanece `tbCompeticao.cdCompeticao`,
+mas o domínio Java autoritativo passa a utilizar `Campeonato`.
 
-Estratégia recomendada:
+Não manter simultaneamente duas entidades JPA autoritativas apontando para
+`tbCompeticao`. O modelo legado `Competicao` será substituído pelo novo modelo
+`Campeonato`. Serviços, controllers, mappers, DTOs e testes que ainda consumirem
+`Competicao` devem ser adaptados ou removidos no mínimo necessário para preservar
+compilação e consistência arquitetural. Não criar adapter apenas para preservar
+uma abstração que não possua mais função no domínio.
 
-```text
-nome de domínio: Campeonato
-identidade física inicial: tbCompeticao.cdCompeticao
-```
-
-Isso reduz migração e permite preservar FKs legadas.
-
-A classe Java poderá ser migrada de `Competicao` para `Campeonato` em etapa controlada. Durante a transição, não manter duas entidades JPA autoritativas apontando para a mesma tabela.
-
-Endpoints legados que precisarem continuar funcionando devem ser tratados como camada de compatibilidade, não como motivo para manter semântica antiga dentro do novo domínio.
+Endpoints legados que ainda precisarem continuar funcionando podem ser adaptados
+para o novo domínio, mas não devem duplicar regras de negócio nem justificar a
+manutenção de duas entidades JPA para a mesma tabela.
 
 ## Substituição de `Competidores`
 
@@ -482,14 +482,55 @@ Casos críticos obrigatórios incluem:
 - migrations devem ser reversíveis operacionalmente por rollout/backup, não por apagar histórico do domínio;
 - priorizar implementação incremental e verificável em vez de refatoração transversal do projeto inteiro.
 
-## Decisão técnica ainda aberta
+## Gate 3 / Slice 3.3 — núcleo de Campeonato e identidade semântica
 
-Antes de detalhar entidades e contratos, fechar a nomenclatura Java/API de campeonato:
+### Decisões fechadas
 
-### Opção recomendada
+- `tbCompeticao` não possui dados legados que precisem ser preservados ou
+  migrados no contexto do MVP;
+- não implementar backfill;
+- não inferir Organizador a partir de `federacao`;
+- não inferir País/Subdivisão a partir de `local`;
+- `federacao` pode ser removida se a análise dos consumidores atuais confirmar
+  que não há dependência;
+- a migration será `V20260917__evolve_competicao_for_campeonato.sql`;
+- a única entidade JPA autoritativa para `tbCompeticao` será `Campeonato`;
+- `Competicao` será substituída, com adaptação ou remoção mínima de seus
+  consumidores;
+- o slice contém somente o núcleo persistente, a identidade semântica e as
+  invariantes estruturais de Campeonato.
 
-Usar `Campeonato` no novo domínio e manter `tbCompeticao`/`cdCompeticao` fisicamente durante o MVP por compatibilidade.
+### Escopo do slice
 
-Endpoints novos usam `/campeonatos`. Endpoints `/competicao` existentes podem ser mantidos temporariamente como compatibilidade/depreciação até o `fed-team` migrar.
+Inclui:
 
-Isso permite corrigir a linguagem de domínio sem exigir uma migration destrutiva de banco no mesmo momento.
+- `Campeonato`;
+- `CampeonatoStatus` com `ATIVO` e `CANCELADO`;
+- repository;
+- nome normalizado persistido com `NomeCatalogoNormalizer`;
+- Organizador, País, Subdivisão opcional e usuário criador;
+- auditoria necessária;
+- datas, status corrente e `@Version`;
+- identidade semântica e unicidade concorrente;
+- validação de catálogos ativos e coerência País/Subdivisão;
+- testes unitários e MySQL/Testcontainers.
+
+Não inclui:
+
+- `CampeonatoStatusHistorico`;
+- `SolicitacaoAlteracaoStatusCampeonato`;
+- `SolicitacaoAlteracaoCampeonato`;
+- workflow administrativo completo de cancelamento/reativação;
+- Temporada, TemporadaCampeonato, Vínculo, Inscrição, Resultado, Ranking,
+  pontuação, relatórios ou APIs novas completas.
+
+### Migration e integração
+
+A migration pode estabelecer diretamente as novas invariantes obrigatórias,
+pois não existe dado legado a ser preservado no contexto aprovado. Migrations
+anteriores são imutáveis. A tabela e a PK físicas permanecem `tbCompeticao` e
+`cdCompeticao`.
+
+O limite do slice está fechado. Histórico, solicitações e autorização
+contextual serão refinados em slices posteriores, sem antecipar dependências de
+Temporada, Inscrição ou Resultado.

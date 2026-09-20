@@ -322,6 +322,27 @@ A entidade JPA nova `Campeonato` será a única entidade autoritativa apontando 
 
 A antiga classe `Competicao` deve ser removida/renomeada na etapa de implementação. Não manter duas entidades JPA mapeadas simultaneamente para a mesma tabela.
 
+### Decisão de dados legados e limite do Slice 3.3
+
+No contexto aprovado do MVP, `tbCompeticao` não possui dados legados que
+precisem ser preservados ou migrados. A evolução da tabela pode, portanto,
+estabelecer diretamente as novas colunas obrigatórias, sem backfill.
+
+Não inferir:
+
+- Organizador a partir de `federacao`;
+- País ou Subdivisão a partir de `local`;
+- usuário ou auditoria a partir de dados inexistentes.
+
+O campo físico `federacao` pode ser removido se a análise dos consumidores
+atuais confirmar que não há dependência. Migrations anteriores permanecem
+imutáveis.
+
+O Slice 3.3 implementa somente o núcleo persistente de Campeonato e sua
+identidade semântica. `CampeonatoStatus` representa o estado corrente
+persistido, mas histórico, solicitações e workflow administrativo completo ficam
+fora deste slice.
+
 ## 7. Evolução de `tbCompeticao`
 
 Campos legados atuais conhecidos:
@@ -710,42 +731,39 @@ Após baseline Flyway da base atual:
 4. criar `tbCategoria`;
 5. criar `tbClasse`;
 6. popular país/subdivisão;
-7. evoluir `tbCompeticao` com novas colunas inicialmente nullable quando necessário para migração;
-8. migrar/associar organizador e localização dos registros legados quando possível;
-9. preencher normalizações/status/criador/auditoria segundo regra de migração definida;
-10. somente após dados consistentes, promover `NOT NULL` obrigatórios;
-11. criar constraints/índices de equivalência;
-12. criar tabelas de solicitações;
-13. criar `tbCampeonatoStatusHistorico`.
+7. evoluir `tbCompeticao` diretamente com as colunas obrigatórias do núcleo de
+   Campeonato;
+8. preencher normalizações, status, criador e auditoria somente pela criação
+   do novo modelo, sem backfill de registros legados;
+9. criar constraints/índices de equivalência;
+10. criar tabelas de solicitações;
+11. criar `tbCampeonatoStatusHistorico`.
+
+Para o Slice 3.3, a próxima migration concreta é:
+
+```text
+V20260917__evolve_competicao_for_campeonato.sql
+```
+
+Ela evolui `tbCompeticao` diretamente, sem backfill de dados legados no
+contexto aprovado.
 
 Evitar uma única migration gigantesca. Separar DDL, carga de catálogo, backfill e endurecimento de constraints.
 
-## 18. Migração do campo legado `federacao`
+## 18. Campo legado `federacao`
 
-`federacao` não deve continuar como fonte autoritativa.
+`federacao` não é fonte autoritativa de Organizador e não será usada para
+backfill ou inferência no MVP. O campo pode ser removido na migration do
+Slice 3.3 somente se a análise dos consumidores atuais confirmar que não há
+dependência. Caso permaneça temporariamente, terá apenas compatibilidade física
+e não participará do domínio `Campeonato`.
 
-Estratégia de migração:
+## 19. Campo legado `local`
 
-- extrair valores distintos existentes;
-- normalizar nomes;
-- revisar colisões/variações textuais;
-- criar `Organizador` correspondente somente quando a equivalência puder ser estabelecida com segurança;
-- preencher `cdOrganizador` nos campeonatos migrados;
-- preservar `federacao` temporariamente para auditoria/rollback;
-- remover o campo apenas em etapa posterior e após consumidores legados deixarem de usá-lo.
-
-Não criar organizadores duplicados automaticamente apenas por diferenças de caixa/espaços.
-
-## 19. Migração de localização legada
-
-O campo `local` atual é livre e não permite inferir com segurança país/subdivisão em todos os casos.
-
-Portanto:
-
-- não inferir país/estado por parsing arbitrário;
-- criar processo de backfill determinístico quando houver fonte confiável;
-- registros não reconstruíveis devem ser tratados explicitamente na estratégia de migração antes de tornar `cdPais` obrigatório para dados legados;
-- `local` permanece como descrição textual complementar.
+O campo `local` permanece como descrição textual complementar do novo
+Campeonato. Não inferir País ou Subdivisão por parsing ou por qualquer outra
+heurística. Não criar processo de backfill para dados inexistentes no contexto
+aprovado do MVP.
 
 ## 20. Testes obrigatórios da Fase 1
 
@@ -788,5 +806,5 @@ Esses testes de persistência/concorrência devem executar contra MySQL via Test
 - `CampeonatoStatusHistorico` é append-only e transacional com a mudança de status;
 - solicitações administrativas possuem controle de concorrência;
 - MySQL/Testcontainers é referência dos testes de constraints/locking;
-- migrations são aditivas e endurecem constraints apenas após backfill consistente;
+- migrations anteriores são imutáveis e o Slice 3.3 não possui backfill;
 - `federacao` e `local` legados não devem gerar inferências arbitrárias durante migração.
