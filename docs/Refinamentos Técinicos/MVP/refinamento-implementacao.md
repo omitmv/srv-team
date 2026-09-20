@@ -507,6 +507,8 @@ Inclui:
 - `Campeonato`;
 - `CampeonatoStatus` com `ATIVO` e `CANCELADO`;
 - repository;
+- consultas de equivalência semântica independentes do status e específicas
+  para `ATIVO`;
 - nome normalizado persistido com `NomeCatalogoNormalizer`;
 - Organizador, País, Subdivisão opcional e usuário criador;
 - auditoria necessária;
@@ -534,3 +536,9 @@ anteriores são imutáveis. A tabela e a PK físicas permanecem `tbCompeticao` e
 O limite do slice está fechado. Histórico, solicitações e autorização
 contextual serão refinados em slices posteriores, sem antecipar dependências de
 Temporada, Inscrição ou Resultado.
+
+A `UNIQUE` de identidade ativa continua sendo a garantia concorrente do banco
+somente para registros `ATIVO`. Ela não substitui a consulta do repository
+independente de status, necessária para que o futuro caso de uso bloqueie
+recadastro de equivalente `CANCELADO` e revalide reativação sem antecipar o
+workflow administrativo neste slice.

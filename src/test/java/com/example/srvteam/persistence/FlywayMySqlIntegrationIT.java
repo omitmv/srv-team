@@ -1,6 +1,7 @@
 package com.example.srvteam.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -435,35 +436,119 @@ class FlywayMySqlIntegrationIT {
       assertConcurrentOutcome(withoutSubdivision, 1);
       assertEquals(1, count(dataSource, "tbCompeticao",
           "nmCompeticaoNormalizado = 'campeonato sem subdivisao' AND status = 'ATIVO' AND cdSubdivisao IS NULL"));
+    }
+  }
 
-      insertCampeonato(
-          dataSource,
-          organizerId,
-          countryId,
-          subdivisionId,
-          userId,
+  @Test
+  void shouldQueryEquivalentCampeonatosRegardlessOfStatus() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      OrganizadorRepository organizadorRepository = context.getBean(OrganizadorRepository.class);
+      PaisRepository paisRepository = context.getBean(PaisRepository.class);
+      SubdivisaoRepository subdivisaoRepository = context.getBean(SubdivisaoRepository.class);
+      UsuarioRepository usuarioRepository = context.getBean(UsuarioRepository.class);
+      CampeonatoRepository campeonatoRepository = context.getBean(CampeonatoRepository.class);
+
+      Usuario criador = usuarioRepository.saveAndFlush(
+          new Usuario("equivalencia.user", "password", "Equivalencia User", "equivalencia.user@example.com", 1));
+      Organizador organizador = organizadorRepository.saveAndFlush(new Organizador("Federação Equivalência", criador.getCdUsuario()));
+      Pais pais = paisRepository.saveAndFlush(new Pais("ZX", "ZXX", "Country ZX"));
+      Subdivisao subdivisao = subdivisaoRepository.saveAndFlush(new Subdivisao(pais, "ZX-1", "Subdivision ZX-1"));
+
+      Campeonato canceladoComSubdivisao = campeonatoRepository.saveAndFlush(new Campeonato(
           "Campeonato Cancelado",
+          organizador,
+          pais,
+          subdivisao,
+          "Arena",
+          java.time.LocalDate.of(2026, 10, 14),
+          java.time.LocalDate.of(2026, 10, 14),
+          criador,
+          criador.getCdUsuario()));
+      canceladoComSubdivisao.cancelar(criador.getCdUsuario());
+      campeonatoRepository.saveAndFlush(canceladoComSubdivisao);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicio(
           "campeonato cancelado",
-          "CANCELADO",
-          java.sql.Date.valueOf("2026-10-14"),
-          java.sql.Date.valueOf("2026-10-14"),
-          null);
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14)));
+      assertFalse(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicioAndStatus(
+          "campeonato cancelado",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14),
+          CampeonatoStatus.ATIVO));
 
       insertCampeonato(
           dataSource,
-          organizerId,
-          countryId,
-          subdivisionId,
-          userId,
-          "Campeonato Cancelado 2",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          criador.getCdUsuario(),
+          "Campeonato Ativo Equivalente",
           "campeonato cancelado",
-          "CANCELADO",
+          "ATIVO",
           java.sql.Date.valueOf("2026-10-14"),
           java.sql.Date.valueOf("2026-10-14"),
           null);
 
-      assertEquals(2, count(dataSource, "tbCompeticao",
-          "nmCompeticaoNormalizado = 'campeonato cancelado' AND status = 'CANCELADO'"));
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicioAndStatus(
+          "campeonato cancelado",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14),
+          CampeonatoStatus.ATIVO));
+
+      Campeonato canceladoSemSubdivisao = campeonatoRepository.saveAndFlush(new Campeonato(
+          "Campeonato Cancelado Sem Subdivisão",
+          organizador,
+          pais,
+          null,
+          "Arena",
+          java.time.LocalDate.of(2026, 10, 15),
+          java.time.LocalDate.of(2026, 10, 15),
+          criador,
+          criador.getCdUsuario()));
+      canceladoSemSubdivisao.cancelar(criador.getCdUsuario());
+      campeonatoRepository.saveAndFlush(canceladoSemSubdivisao);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicio(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15)));
+      assertFalse(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicioAndStatus(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15),
+          CampeonatoStatus.ATIVO));
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          null,
+          criador.getCdUsuario(),
+          "Campeonato Ativo Sem Subdivisão",
+          "campeonato cancelado sem subdivisao",
+          "ATIVO",
+          java.sql.Date.valueOf("2026-10-15"),
+          java.sql.Date.valueOf("2026-10-15"),
+          null);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicioAndStatus(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15),
+          CampeonatoStatus.ATIVO));
     }
   }
 

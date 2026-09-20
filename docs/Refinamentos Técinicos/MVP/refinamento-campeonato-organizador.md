@@ -156,6 +156,13 @@ Na criação:
 
 A equivalência é invariante de domínio e precisa de proteção contra concorrência; não deve depender apenas de comparação textual na aplicação.
 
+No Slice 3.3, o repository deve permitir consultar a identidade semântica
+independentemente do status e filtrar especificamente equivalentes `ATIVO`. A
+consulta sem status permite que a futura camada de aplicação bloqueie o
+recadastro de um equivalente `CANCELADO`; a consulta de `ATIVO` apoia a
+revalidação da reativação. Essas consultas não implementam o workflow
+administrativo nem substituem a proteção concorrente do banco.
+
 ## Alteração cadastral
 
 Campeonato é considerado **utilizado** a partir da existência histórica de qualquer `Inscricao` ou `Resultado`, mesmo posteriormente cancelado.

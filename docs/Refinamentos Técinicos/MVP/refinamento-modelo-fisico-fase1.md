@@ -451,11 +451,19 @@ UNIQUE(semanticKeyAtiva)
 
 A implementação concreta deve evitar truncamento/colisão. Preferir chave composta gerada por colunas auxiliares determinísticas quando possível em vez de hash curto.
 
-### Service
+### Repository e camada de aplicação futura
 
-O service ainda deve consultar equivalentes para produzir erro funcional amigável e indicar o campeonato existente.
+O repository deve consultar equivalentes pela identidade semântica completa,
+tanto independentemente do status quanto filtrando especificamente `ATIVO`, nos
+dois casos de Subdivisão preenchida ou nula. A consulta independente de status
+permite que a futura camada de aplicação bloqueie o recadastro de equivalente
+`CANCELADO`; a consulta de `ATIVO` permite revalidar reativação.
 
-O banco é a última barreira para concorrência.
+A `UNIQUE` condicional permanece limitada a registros `ATIVO`: um
+`CANCELADO` não ocupa a chave ativa, para permitir posteriormente a ativação
+controlada de outro registro semanticamente equivalente. As consultas do
+repository não substituem a `UNIQUE`, que é a última barreira do banco contra
+criações ou reativações concorrentes de dois registros `ATIVO`.
 
 ## 9. Organizador/localização válidos
 
