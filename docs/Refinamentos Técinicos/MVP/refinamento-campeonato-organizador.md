@@ -27,6 +27,8 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 
 ## Organizador
 
+Para campos de nome normalizado dos catálogos, inclusive `Organizador`, aplicar a política canônica comum: trim, Unicode `NFKD`, remoção de marcas combinantes/diacríticos, lowercase com `Locale.ROOT`, redução de sequências de whitespace para um espaço ASCII, trim final e preservação de pontuação e símbolos. Reutilizar `NomeCatalogoNormalizer`.
+
 ```text
 Organizador
  ├── cdOrganizador
@@ -57,7 +59,7 @@ Subdivisao
  └── auditoria técnica
 ```
 
-O catálogo é interno e pré-carregado, preferencialmente baseado em ISO 3166/3166-2. País/subdivisão inativos não podem ser selecionados em novos campeonatos, mas permanecem válidos historicamente. A subdivisão deve pertencer ao país informado.
+O catálogo é interno e pré-carregado, baseado em ISO 3166-1 para países e ISO 3166-2 para subdivisões. A carga inicial é gerada da fonte versionada `pycountry` 26.2.16, commit `4ba3951667c2ed98363a3640c9022cf1b7a59300`, usando os arquivos `iso3166-1.json` e `iso3166-2.json`, obtidos em 2026-09-16. O seed contém 249 países e 5.046 subdivisões. País/subdivisão inativos não podem ser selecionados em novos campeonatos, mas permanecem válidos historicamente. A subdivisão deve pertencer ao país informado.
 
 ## Campeonato
 
