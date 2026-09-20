@@ -122,6 +122,21 @@ Vxxx__create_campeonato_administrative_requests.sql
 Vxxx__create_phase1_indexes_and_constraints.sql
 ```
 
+Para a execução incremental do Gate 3, o bloco de catálogos e Campeonato está dividido em:
+
+```text
+Slice 3.1 — Categoria, Classe e TipoClasse
+Slice 3.2 — Organizador, País, Subdivisão e seed ISO
+Slice 3.3 — núcleo de Campeonato e identidade semântica
+```
+
+O Slice 3.3 utilizará `V20260917__evolve_competicao_for_campeonato.sql`. Para o MVP,
+`tbCompeticao` é considerada sem dados legados que precisem ser preservados ou
+migrados. Não haverá backfill, inferência a partir de `federacao`/`local` ou
+complexidade de migração para dados inexistentes. A tabela física e a PK
+permanecem `tbCompeticao` e `cdCompeticao`, mas a única entidade JPA autoritativa
+será `Campeonato`; `Competicao` será substituída.
+
 ### Bloco B — vínculo e temporada
 
 ```text

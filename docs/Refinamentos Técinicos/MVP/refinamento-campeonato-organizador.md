@@ -1,6 +1,6 @@
 # Refinamento técnico — Campeonato e Organizador
 
-Status: modelagem técnica consolidada para o MVP; implementação e migração pendentes.
+Status: modelagem técnica consolidada para o MVP; implementação do núcleo de Campeonato pendente.
 
 ## Objetivo
 
@@ -24,6 +24,30 @@ Modelar `Campeonato` como evento compartilhado entre profissionais e temporadas,
 - Havendo qualquer `Resultado` histórico, alteração de status solicitada por profissional exige aprovação do proprietário.
 - Campeonato cancelado equivalente não pode ser recadastrado.
 - Reativação deve revalidar equivalência e é bloqueada se já existir outro campeonato `ATIVO` semanticamente equivalente.
+
+## Limite aprovado do Slice 3.3
+
+O próximo slice é `Gate 3 / Slice 3.3 — Núcleo de Campeonato e identidade
+semântica`.
+
+Neste slice:
+
+- `Campeonato` substitui `Competicao` como entidade Java autoritativa;
+- a tabela física permanece `tbCompeticao`, com PK `cdCompeticao`;
+- `CampeonatoStatus` contém `ATIVO` e `CANCELADO` e representa somente o
+  estado corrente persistido;
+- `V20260917__evolve_competicao_for_campeonato.sql` evolui diretamente a tabela;
+- `tbCompeticao` é considerada sem dados legados que precisem ser preservados
+  ou migrados no contexto do MVP;
+- não haverá backfill nem inferência de Organizador por `federacao` ou de
+  País/Subdivisão por `local`;
+- histórico de status, solicitações administrativas e workflow completo de
+  cancelamento/reativação ficam fora deste slice;
+- Temporada, TemporadaCampeonato, Vínculo, Inscrição, Resultado, Ranking,
+  pontuação, relatórios e APIs novas completas ficam fora deste slice.
+
+O campo físico legado `federacao` poderá ser removido somente após a análise dos
+consumidores atuais confirmar que não há dependência.
 
 ## Organizador
 
@@ -131,6 +155,13 @@ Na criação:
 - inexistente: permitir criação.
 
 A equivalência é invariante de domínio e precisa de proteção contra concorrência; não deve depender apenas de comparação textual na aplicação.
+
+No Slice 3.3, o repository deve permitir consultar a identidade semântica
+independentemente do status e filtrar especificamente equivalentes `ATIVO`. A
+consulta sem status permite que a futura camada de aplicação bloqueie o
+recadastro de um equivalente `CANCELADO`; a consulta de `ATIVO` apoia a
+revalidação da reativação. Essas consultas não implementam o workflow
+administrativo nem substituem a proteção concorrente do banco.
 
 ## Alteração cadastral
 

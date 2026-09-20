@@ -1,9 +1,14 @@
 package com.example.srvteam.persistence;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.srvteam.SrvTeamApplication;
+import com.example.srvteam.campeonato.model.Campeonato;
+import com.example.srvteam.campeonato.model.CampeonatoStatus;
+import com.example.srvteam.campeonato.repository.CampeonatoRepository;
 import com.example.srvteam.catalogo.model.Categoria;
 import com.example.srvteam.catalogo.model.Classe;
 import com.example.srvteam.catalogo.model.Organizador;
@@ -15,6 +20,8 @@ import com.example.srvteam.catalogo.repository.ClasseRepository;
 import com.example.srvteam.catalogo.repository.OrganizadorRepository;
 import com.example.srvteam.catalogo.repository.PaisRepository;
 import com.example.srvteam.catalogo.repository.SubdivisaoRepository;
+import com.example.srvteam.model.Usuario;
+import com.example.srvteam.repository.UsuarioRepository;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -47,6 +54,7 @@ class FlywayMySqlIntegrationIT {
   private static final String CATALOG_MIGRATION_VERSION = "20260914";
   private static final String SUPPORT_CATALOGS_MIGRATION_VERSION = "20260915";
   private static final String ISO_SEED_MIGRATION_VERSION = "20260916";
+  private static final String CAMPEONATO_CORE_MIGRATION_VERSION = "20260917";
   private static final String JWT_SECRET = "01234567890123456789012345678901";
 
   @Container
@@ -107,6 +115,7 @@ class FlywayMySqlIntegrationIT {
       assertMigrationVersionPresent(dataSource, CATALOG_MIGRATION_VERSION);
       assertMigrationVersionPresent(dataSource, SUPPORT_CATALOGS_MIGRATION_VERSION);
       assertMigrationVersionPresent(dataSource, ISO_SEED_MIGRATION_VERSION);
+      assertMigrationVersionPresent(dataSource, CAMPEONATO_CORE_MIGRATION_VERSION);
       assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbOrganizador");
       assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbPais");
       assertTableExists(dataSource, MYSQL.getDatabaseName(), "tbSubdivisao");
@@ -131,7 +140,7 @@ class FlywayMySqlIntegrationIT {
         Categoria categoria = categoriaRepository.saveAndFlush(new Categoria("  SÃO   PAULO ", 1));
         assertEquals("sao paulo", categoria.getNmCategoriaNormalizado());
         assertEquals(2, categoriaRepository.findAll().size());
-        assertEquals(1, categoriaRepository.findAll().stream().filter(Categoria::getFlAtivo).count());
+        assertEquals(1, categoriaRepository.findAll().stream().filter(categoriaItem -> Boolean.TRUE.equals(categoriaItem.getFlAtivo())).count());
 
       assertThrowsDataIntegrity(() -> categoriaRepository.saveAndFlush(new Categoria("Sao Paulo", 1)));
 
@@ -143,7 +152,7 @@ class FlywayMySqlIntegrationIT {
       assertEquals("classe-a", classe.getNmClasseNormalizado());
       assertEquals(TipoClasse.COMUM, classe.getTipoClasse());
         assertEquals(2, classeRepository.findAll().size());
-        assertEquals(1, classeRepository.findAll().stream().filter(Classe::getFlAtivo).count());
+        assertEquals(1, classeRepository.findAll().stream().filter(classeItem -> Boolean.TRUE.equals(classeItem.getFlAtivo())).count());
 
       classeRepository.saveAndFlush(new Classe(categoria, "Classe A", TipoClasse.COMUM, 1));
       assertThrowsDataIntegrity(
@@ -294,6 +303,255 @@ class FlywayMySqlIntegrationIT {
     }
   }
 
+  @Test
+  void shouldPersistCampeonatoAndEnforceMysqlCoreConstraints() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      OrganizadorRepository organizadorRepository = context.getBean(OrganizadorRepository.class);
+      PaisRepository paisRepository = context.getBean(PaisRepository.class);
+      SubdivisaoRepository subdivisaoRepository = context.getBean(SubdivisaoRepository.class);
+      UsuarioRepository usuarioRepository = context.getBean(UsuarioRepository.class);
+      CampeonatoRepository campeonatoRepository = context.getBean(CampeonatoRepository.class);
+
+      Usuario criador = usuarioRepository.saveAndFlush(
+          new Usuario("campeonato.user", "password", "Campeonato User", "campeonato.user@example.com", 1));
+      Organizador organizador = organizadorRepository.saveAndFlush(new Organizador("Federação Águia", criador.getCdUsuario()));
+      Pais brasil = paisRepository.saveAndFlush(new Pais("ZZ", "ZZZ", "Test Country"));
+      Subdivisao saoPaulo = subdivisaoRepository.saveAndFlush(new Subdivisao(brasil, "ZZ-SP", "Test Subdivision"));
+
+      Campeonato campeonato = campeonatoRepository.saveAndFlush(new Campeonato(
+          "  Campeonato   Paulista  ",
+          organizador,
+          brasil,
+          saoPaulo,
+          "Ginásio Central",
+          java.time.LocalDate.of(2026, 9, 20),
+          java.time.LocalDate.of(2026, 9, 21),
+          criador,
+          criador.getCdUsuario()));
+
+      assertEquals("campeonato paulista", campeonato.getNmCompeticaoNormalizado());
+      assertEquals(CampeonatoStatus.ATIVO, campeonato.getStatus());
+      assertEquals("varchar", columnType(dataSource, "tbCompeticao", "status"));
+      assertEquals("bigint", columnType(dataSource, "tbCompeticao", "lockVersion"));
+
+      Campeonato loaded = campeonatoRepository.findById(campeonato.getCdCompeticao()).orElseThrow();
+      Long versionBefore = loaded.getLockVersion();
+      assertNotNull(versionBefore);
+      loaded.cancelar(criador.getCdUsuario());
+      Campeonato updated = campeonatoRepository.saveAndFlush(loaded);
+      assertTrue(updated.getLockVersion() > versionBefore);
+
+      int canceledCount = count(dataSource, "tbCompeticao",
+          "nmCompeticaoNormalizado = 'campeonato paulista' AND status = 'CANCELADO'");
+      assertEquals(1, canceledCount);
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          brasil.getCdPais(),
+          saoPaulo.getCdSubdivisao(),
+          criador.getCdUsuario(),
+          "campeonato paulista 2",
+          "campeonato paulista 2",
+          "ATIVO",
+          java.sql.Date.valueOf("2026-09-22"),
+          java.sql.Date.valueOf("2026-09-21"),
+          "ck_tbCompeticao_periodo");
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          brasil.getCdPais(),
+          saoPaulo.getCdSubdivisao(),
+          criador.getCdUsuario(),
+          "campeonato paulista 3",
+          "campeonato paulista 3",
+          "INVALIDO",
+          java.sql.Date.valueOf("2026-09-20"),
+          java.sql.Date.valueOf("2026-09-21"),
+          "ck_tbCompeticao_status");
+
+      int paisUsa = insertCountry(dataSource, "ZY", "ZYY", "Country ZY");
+      int subdivisaoOutroPais = insertSubdivision(dataSource, paisUsa, "ZY-AA", "Other Country Subdivision");
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          brasil.getCdPais(),
+          subdivisaoOutroPais,
+          criador.getCdUsuario(),
+          "campeonato invalido",
+          "campeonato invalido",
+          "ATIVO",
+          java.sql.Date.valueOf("2026-09-20"),
+          java.sql.Date.valueOf("2026-09-21"),
+          "fk_tbCompeticao_cdPaisCdSubdivisao");
+    }
+  }
+
+  @Test
+  void shouldRejectConcurrentEquivalentActiveCampeonatos() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      int userId = insertUserAndReturnId(dataSource, "conc.user", "conc.user@example.com");
+      int organizerId = insertOrganizer(dataSource, "Federação Águia", "federacao aguia", userId);
+      int countryId = insertCountry(dataSource, "ZX", "ZXX", "Country ZX");
+      int subdivisionId = insertSubdivision(dataSource, countryId, "ZX-1", "Subdivision ZX-1");
+
+      List<Boolean> withSubdivision = runConcurrentInserts(dataSource, connection -> {
+        insertCampeonato(connection,
+            organizerId,
+            countryId,
+            subdivisionId,
+            userId,
+            "Campeonato Único",
+            "campeonato unico",
+            "ATIVO",
+            java.sql.Date.valueOf("2026-10-10"),
+            java.sql.Date.valueOf("2026-10-11"));
+      }, "uk_tbCompeticao_identidadeAtiva");
+
+      assertConcurrentOutcome(withSubdivision, 1);
+      assertEquals(1, count(dataSource, "tbCompeticao",
+          "nmCompeticaoNormalizado = 'campeonato unico' AND status = 'ATIVO'"));
+
+      List<Boolean> withoutSubdivision = runConcurrentInserts(dataSource, connection -> {
+        insertCampeonato(connection,
+            organizerId,
+            countryId,
+            null,
+            userId,
+            "Campeonato Sem Subdivisão",
+            "campeonato sem subdivisao",
+            "ATIVO",
+            java.sql.Date.valueOf("2026-10-12"),
+            java.sql.Date.valueOf("2026-10-12"));
+      }, "uk_tbCompeticao_identidadeAtiva");
+
+      assertConcurrentOutcome(withoutSubdivision, 1);
+      assertEquals(1, count(dataSource, "tbCompeticao",
+          "nmCompeticaoNormalizado = 'campeonato sem subdivisao' AND status = 'ATIVO' AND cdSubdivisao IS NULL"));
+    }
+  }
+
+  @Test
+  void shouldQueryEquivalentCampeonatosRegardlessOfStatus() throws Exception {
+    migrateSchema();
+
+    try (ConfigurableApplicationContext context = runApplication()) {
+      DataSource dataSource = context.getBean(DataSource.class);
+      OrganizadorRepository organizadorRepository = context.getBean(OrganizadorRepository.class);
+      PaisRepository paisRepository = context.getBean(PaisRepository.class);
+      SubdivisaoRepository subdivisaoRepository = context.getBean(SubdivisaoRepository.class);
+      UsuarioRepository usuarioRepository = context.getBean(UsuarioRepository.class);
+      CampeonatoRepository campeonatoRepository = context.getBean(CampeonatoRepository.class);
+
+      Usuario criador = usuarioRepository.saveAndFlush(
+          new Usuario("equivalencia.user", "password", "Equivalencia User", "equivalencia.user@example.com", 1));
+      Organizador organizador = organizadorRepository.saveAndFlush(new Organizador("Federação Equivalência", criador.getCdUsuario()));
+      Pais pais = paisRepository.saveAndFlush(new Pais("ZX", "ZXX", "Country ZX"));
+      Subdivisao subdivisao = subdivisaoRepository.saveAndFlush(new Subdivisao(pais, "ZX-1", "Subdivision ZX-1"));
+
+      Campeonato canceladoComSubdivisao = campeonatoRepository.saveAndFlush(new Campeonato(
+          "Campeonato Cancelado",
+          organizador,
+          pais,
+          subdivisao,
+          "Arena",
+          java.time.LocalDate.of(2026, 10, 14),
+          java.time.LocalDate.of(2026, 10, 14),
+          criador,
+          criador.getCdUsuario()));
+      canceladoComSubdivisao.cancelar(criador.getCdUsuario());
+      campeonatoRepository.saveAndFlush(canceladoComSubdivisao);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicio(
+          "campeonato cancelado",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14)));
+      assertFalse(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicioAndStatus(
+          "campeonato cancelado",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14),
+          CampeonatoStatus.ATIVO));
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          criador.getCdUsuario(),
+          "Campeonato Ativo Equivalente",
+          "campeonato cancelado",
+          "ATIVO",
+          java.sql.Date.valueOf("2026-10-14"),
+          java.sql.Date.valueOf("2026-10-14"),
+          null);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoCdSubdivisaoAndDtInicioAndStatus(
+          "campeonato cancelado",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          subdivisao.getCdSubdivisao(),
+          java.time.LocalDate.of(2026, 10, 14),
+          CampeonatoStatus.ATIVO));
+
+      Campeonato canceladoSemSubdivisao = campeonatoRepository.saveAndFlush(new Campeonato(
+          "Campeonato Cancelado Sem Subdivisão",
+          organizador,
+          pais,
+          null,
+          "Arena",
+          java.time.LocalDate.of(2026, 10, 15),
+          java.time.LocalDate.of(2026, 10, 15),
+          criador,
+          criador.getCdUsuario()));
+      canceladoSemSubdivisao.cancelar(criador.getCdUsuario());
+      campeonatoRepository.saveAndFlush(canceladoSemSubdivisao);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicio(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15)));
+      assertFalse(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicioAndStatus(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15),
+          CampeonatoStatus.ATIVO));
+
+      insertCampeonato(
+          dataSource,
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          null,
+          criador.getCdUsuario(),
+          "Campeonato Ativo Sem Subdivisão",
+          "campeonato cancelado sem subdivisao",
+          "ATIVO",
+          java.sql.Date.valueOf("2026-10-15"),
+          java.sql.Date.valueOf("2026-10-15"),
+          null);
+
+      assertTrue(campeonatoRepository.existsByNmCompeticaoNormalizadoAndOrganizadorCdOrganizadorAndPaisCdPaisAndSubdivisaoIsNullAndDtInicioAndStatus(
+          "campeonato cancelado sem subdivisao",
+          organizador.getCdOrganizador(),
+          pais.getCdPais(),
+          java.time.LocalDate.of(2026, 10, 15),
+          CampeonatoStatus.ATIVO));
+    }
+  }
+
   private void insertUser(DataSource dataSource) throws SQLException {
     try (Connection connection = dataSource.getConnection();
         PreparedStatement statement = connection.prepareStatement("""
@@ -301,6 +559,76 @@ class FlywayMySqlIntegrationIT {
             VALUES ('catalogo-user', 'password', 'Catalogo User', 'catalogo@example.com', NOW(), b'1', 1)
             """)) {
       statement.executeUpdate();
+    }
+  }
+
+  private int insertUserAndReturnId(DataSource dataSource, String login, String email) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbUsuario (login, senha, nome, email, dataCadastro, flAtivo, cdTpAcesso)
+            VALUES (?, 'password', ?, ?, NOW(6), b'1', 1)
+            """, Statement.RETURN_GENERATED_KEYS)) {
+      statement.setString(1, login);
+      statement.setString(2, "Name " + login);
+      statement.setString(3, email);
+      statement.executeUpdate();
+      try (ResultSet keys = statement.getGeneratedKeys()) {
+        assertTrue(keys.next());
+        return keys.getInt(1);
+      }
+    }
+  }
+
+  private int insertOrganizer(
+      DataSource dataSource, String name, String normalizedName, int userId) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbOrganizador (
+                nmOrganizador, nmOrganizadorNormalizado, flAtivo, dtCadastro, cdUsuarioCadastro)
+            VALUES (?, ?, b'1', NOW(6), ?)
+            """, Statement.RETURN_GENERATED_KEYS)) {
+      statement.setString(1, name);
+      statement.setString(2, normalizedName);
+      statement.setInt(3, userId);
+      statement.executeUpdate();
+      try (ResultSet keys = statement.getGeneratedKeys()) {
+        assertTrue(keys.next());
+        return keys.getInt(1);
+      }
+    }
+  }
+
+  private int insertCountry(DataSource dataSource, String iso2, String iso3, String name) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbPais (codigoIso2, codigoIso3, nmPais, flAtivo, dtCadastro)
+            VALUES (?, ?, ?, b'1', NOW(6))
+            """, Statement.RETURN_GENERATED_KEYS)) {
+      statement.setString(1, iso2);
+      statement.setString(2, iso3);
+      statement.setString(3, name);
+      statement.executeUpdate();
+      try (ResultSet keys = statement.getGeneratedKeys()) {
+        assertTrue(keys.next());
+        return keys.getInt(1);
+      }
+    }
+  }
+
+  private int insertSubdivision(DataSource dataSource, int countryId, String isoCode, String name) throws SQLException {
+    try (Connection connection = dataSource.getConnection();
+        PreparedStatement statement = connection.prepareStatement("""
+            INSERT INTO tbSubdivisao (cdPais, codigoIso, nmSubdivisao, flAtivo, dtCadastro)
+            VALUES (?, ?, ?, b'1', NOW(6))
+            """, Statement.RETURN_GENERATED_KEYS)) {
+      statement.setInt(1, countryId);
+      statement.setString(2, isoCode);
+      statement.setString(3, name);
+      statement.executeUpdate();
+      try (ResultSet keys = statement.getGeneratedKeys()) {
+        assertTrue(keys.next());
+        return keys.getInt(1);
+      }
     }
   }
 
@@ -318,6 +646,84 @@ class FlywayMySqlIntegrationIT {
         assertTrue(keys.next());
         return keys.getInt(1);
       }
+    }
+  }
+
+  private void insertCampeonato(
+      DataSource dataSource,
+      int organizerId,
+      int countryId,
+      Integer subdivisionId,
+      int creatorId,
+      String name,
+      String normalizedName,
+      String status,
+      java.sql.Date startDate,
+      java.sql.Date endDate,
+      String expectedConstraint) throws SQLException {
+    try (Connection connection = dataSource.getConnection()) {
+      try {
+        insertCampeonato(connection, organizerId, countryId, subdivisionId, creatorId, name, normalizedName, status,
+            startDate, endDate);
+      } catch (SQLException exception) {
+        if (expectedConstraint == null) {
+          throw exception;
+        }
+        assertTrue("23000".equals(exception.getSQLState()) || "HY000".equals(exception.getSQLState()),
+            () -> "SQLState inesperado: " + exception.getSQLState());
+        assertTrue(exception.getMessage().contains(expectedConstraint),
+            () -> "Constraint inesperada: " + exception.getMessage());
+        return;
+      }
+      if (expectedConstraint != null) {
+        throw new AssertionError("Era esperada violação da constraint " + expectedConstraint);
+      }
+    }
+  }
+
+  private void insertCampeonato(
+      Connection connection,
+      int organizerId,
+      int countryId,
+      Integer subdivisionId,
+      int creatorId,
+      String name,
+      String normalizedName,
+      String status,
+      java.sql.Date startDate,
+      java.sql.Date endDate) throws SQLException {
+    try (PreparedStatement statement = connection.prepareStatement("""
+        INSERT INTO tbCompeticao (
+            nmCompeticao,
+            nmCompeticaoNormalizado,
+            cdOrganizador,
+            cdPais,
+            cdSubdivisao,
+            local,
+            dtInicio,
+            dtFim,
+            status,
+            cdCriador,
+            dtCadastro,
+            cdUsuarioCadastro,
+            lockVersion)
+        VALUES (?, ?, ?, ?, ?, 'Arena', ?, ?, ?, ?, NOW(6), ?, 0)
+        """)) {
+      statement.setString(1, name);
+      statement.setString(2, normalizedName);
+      statement.setInt(3, organizerId);
+      statement.setInt(4, countryId);
+      if (subdivisionId == null) {
+        statement.setNull(5, java.sql.Types.INTEGER);
+      } else {
+        statement.setInt(5, subdivisionId);
+      }
+      statement.setDate(6, startDate);
+      statement.setDate(7, endDate);
+      statement.setString(8, status);
+      statement.setInt(9, creatorId);
+      statement.setInt(10, creatorId);
+      statement.executeUpdate();
     }
   }
 
@@ -382,7 +788,7 @@ class FlywayMySqlIntegrationIT {
 
   private void assertConcurrentOutcome(List<Boolean> results, int expectedSuccesses) {
     assertEquals(2, results.size());
-    assertEquals(expectedSuccesses, results.stream().filter(Boolean::booleanValue).count());
+    assertEquals(expectedSuccesses, results.stream().filter(Boolean.TRUE::equals).count());
     assertEquals(1, results.stream().filter(result -> !result).count());
   }
 
